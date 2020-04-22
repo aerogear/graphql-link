@@ -5,7 +5,7 @@ GraphQL endpoints.
 
 ### Installing
 
-`go get -U github.com/chirino/graphql-gw`
+`go get -u github.com/chirino/graphql-gw`
 
 ## Getting started
 
