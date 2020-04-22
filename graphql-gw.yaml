@@ -1,0 +1,31 @@
+# Configure the host and port the service will listen on
+listen: 0.0.0.0:8080
+
+#
+# Configure the GraphQL endpoints you will be composing here along with their schema.
+endpoints:
+  ep1:
+    url: http://localhost:8081/
+    schema: |
+      schema {
+          query: Query
+      }
+      type Query {
+          schema:String
+          login(token:String!):LoggedIn
+      }
+      type LoggedIn {
+          hello(name:String!):String
+      }
+
+query:
+  # Add's a field called 'hi' to the query
+  hi:
+    endpoint: ep1 # a reference to an endpoint configured above
+    description: provided by the hello service
+    query: |
+      query($tok: String!, $firstName:String!) {
+        login(token:$tok) {
+          hello(name:$firstName)
+        }
+      }
