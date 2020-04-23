@@ -56,7 +56,7 @@ schema {
 	defer server.Close()
 
 	client := relay.NewClient(server.URL)
-	res := client.Post(&graphql.EngineRequest{
+	res := client.ServeGraphQL(&graphql.EngineRequest{
 		Query: `
 {
 	hi(tok:"03D5FDA", firstName:"Hiram")
@@ -85,11 +85,11 @@ func startHelloGraphQL() *httptest.Server {
     `)
 
 	engine.Resolver = resolvers.List(engine.Resolver, resolvers.Func(func(request *resolvers.ResolveRequest, next resolvers.Resolution) resolvers.Resolution {
-		if request.Field.Name == "schema" {
-			return func() (value reflect.Value, err error) {
-				return reflect.ValueOf(engine.Schema.String()), nil
-			}
+		// use the built in resolver if it's available.
+		if next != nil {
+			return next
 		}
+
 		if request.Field.Name == "login" {
 			return func() (value reflect.Value, err error) {
 				return reflect.ValueOf(request.Args["token"]), nil

@@ -21,10 +21,12 @@ var (
 		Run:   run,
 	}
 	ConfigFile = ""
+	Production = false
 )
 
 func init() {
 	Command.Flags().StringVar(&ConfigFile, "config", "graphql-gw.yaml", "path to the config file to load")
+	Command.Flags().BoolVar(&Production, "production", false, "when true, the server will not download and store schemas from remote graphql endpoints.")
 	root.Command.AddCommand(Command)
 }
 
@@ -53,6 +55,14 @@ func run(cmd *cobra.Command, args []string) {
 
 	if config.Listen == "" {
 		config.Listen = "0.0.0.0:8080"
+	}
+
+	if Production {
+		config.DisableSchemaDownloads = true
+		config.EnabledSchemaStorage = false
+	} else {
+		config.DisableSchemaDownloads = false
+		config.EnabledSchemaStorage = true
 	}
 
 	engine, err := gateway.NewEngine(config.Config)

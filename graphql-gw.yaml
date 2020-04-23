@@ -5,27 +5,24 @@ listen: 0.0.0.0:8080
 # Configure the GraphQL endpoints you will be composing here along with their schema.
 endpoints:
   ep1:
-    url: http://localhost:8081/
-    schema: |
-      schema {
-          query: Query
-      }
-      type Query {
-          schema:String
-          login(token:String!):LoggedIn
-      }
-      type LoggedIn {
-          hello(name:String!):String
-      }
+    url: https://graphql.anilist.co
 
 query:
-  # Add's a field called 'hi' to the query
-  hi:
+  # List of the Kuchiki's in the anilist.co
+  kuchikis:
     endpoint: ep1 # a reference to an endpoint configured above
     description: provided by the hello service
     query: |
-      query($tok: String!, $firstName:String!) {
-        login(token:$tok) {
-          hello(name:$firstName)
+      query {
+        Page(page: 1, perPage: 10) {
+          characters(search: "Kuchiki") {
+            id
+            name {
+              first
+              last
+              full
+              native
+            }
+          }
         }
       }

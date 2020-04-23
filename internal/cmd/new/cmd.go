@@ -39,17 +39,6 @@ endpoints:
   # # Example Endpoint
   # ep1:
   #   url: http://localhost:8081/
-  #   schema: |
-  #     schema {
-  #         query: Query
-  #     }
-  #     type Query {
-  #         schema:String
-  #         login(token:String!):LoggedIn
-  #     }
-  #     type LoggedIn {
-  #         hello(name:String!):String
-  #     }
 
 query:
   # # Adding an example query field that forwards to an endpoint.
