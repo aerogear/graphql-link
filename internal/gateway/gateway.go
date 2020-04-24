@@ -1,12 +1,14 @@
 package gateway
 
 import (
+	"bytes"
 	"encoding/json"
 	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -48,13 +50,15 @@ type endpoint struct {
 	info   EndpointInfo
 }
 
+var validGraphQLIdentifierRegex = regexp.MustCompile(`^[A-Za-z_][A-Za-z_0-9]*$`)
+
 func NewEngine(config Config) (*graphql.Engine, error) {
 
 	if config.ConfigDirectory == "" {
 		config.ConfigDirectory = "."
 	}
 	if config.EnabledSchemaStorage {
-		os.MkdirAll(filepath.Join(config.ConfigDirectory, "endpoints"), 755)
+		os.MkdirAll(filepath.Join(config.ConfigDirectory, "endpoints"), 0755)
 	}
 
 	fieldResolver := resolvers.TypeAndFieldResolver{}
@@ -147,7 +151,6 @@ func loadEndpointSchema(config Config, eid string, endpoint *endpoint) (*schema.
 
 		// We may need to store it if it succeeded.
 		if err == nil && config.EnabledSchemaStorage {
-			os.MkdirAll(filepath.Join(config.ConfigDirectory, "endpoints"), 755)
 			err := ioutil.WriteFile(endpointSchemaFile, []byte(s.String()), 0644)
 			if err != nil {
 				return nil, errors.Wrap(err, "could not update schema")
@@ -235,27 +238,33 @@ func Mount(root *graphql.Engine, rootTypeName string, rootField schema.Field, re
 		selectionAliases = append(selectionAliases, s.Selection.Alias.Text)
 	}
 
+	var querySplitter = regexp.MustCompile(`[}\s]*$`) //childSchema
+	queryTail := querySplitter.FindString(childQuery)
+	queryHead := strings.TrimSuffix(childQuery, queryTail)
+
 	resolver.Set(rootTypeName, rootField.Name, func(request *resolvers.ResolveRequest, _ resolvers.Resolution) resolvers.Resolution {
 		return func() (reflect.Value, error) {
 
+			clientQuery := &bytes.Buffer{}
+			clientQuery.WriteString(queryHead)
+			request.Selection.Selections.WriteTo(clientQuery)
+			clientQuery.WriteString(queryTail)
+
 			result := serveGraphQL(&graphql.Request{
 				Context:   request.Context.GetContext(),
-				Query:     childQuery,
+				Query:     clientQuery.String(),
 				Variables: request.Args,
 			})
 
+			if len(result.Errors) > 0 {
+				log.Println("query failed: ", childQuery)
+				return reflect.Value{}, result.Error()
+			}
+
 			data := map[string]interface{}{}
-			if result.Data == nil {
-				err := result.Error()
-				if err == nil {
-					err = errors.New("no json result provided")
-				}
+			err := json.Unmarshal(result.Data, &data)
+			if err != nil {
 				return reflect.Value{}, err
-			} else {
-				err := json.Unmarshal(result.Data, &data)
-				if err != nil {
-					return reflect.Value{}, err
-				}
 			}
 
 			var r interface{} = data

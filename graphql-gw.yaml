@@ -1,28 +1,20 @@
 # Configure the host and port the service will listen on
-listen: 0.0.0.0:8080
+listen: localhost:8080
 
 #
 # Configure the GraphQL endpoints you will be composing here along with their schema.
 endpoints:
-  ep1:
-    url: https://graphql.anilist.co
+  anilist:
+    url: https://graphql.anilist.co/
 
 query:
-  # List of the Kuchiki's in the anilist.co
-  kuchikis:
-    endpoint: ep1 # a reference to an endpoint configured above
-    description: provided by the hello service
+
+  animeCharacters:
+    endpoint: anilist # a reference to an endpoint configured above
+    description: get characters from anilist.co
     query: |
-      query {
-        Page(page: 1, perPage: 10) {
-          characters(search: "Kuchiki") {
-            id
-            name {
-              first
-              last
-              full
-              native
-            }
-          }
+      query ($page:Int, $perPage:Int, $search:String) {
+        Page(page:$page, perPage:$perPage) {
+          characters(search:$search)
         }
       }

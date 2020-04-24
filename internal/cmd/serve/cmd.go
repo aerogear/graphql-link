@@ -1,6 +1,7 @@
 package serve
 
 import (
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net"
@@ -54,7 +55,7 @@ func run(cmd *cobra.Command, args []string) {
 	}
 
 	if config.Listen == "" {
-		config.Listen = "0.0.0.0:8080"
+		config.Listen = "localhost:8080"
 	}
 
 	if Production {
@@ -75,10 +76,11 @@ func run(cmd *cobra.Command, args []string) {
 		log.Fatalf(vebosityFmt, err)
 	}
 
+	endpoint := fmt.Sprintf("http://%s:%s", host, port)
 	http.Handle("/graphql", &relay.Handler{Engine: engine})
-	log.Printf("GraphQL endpoint running at http://%s:%s/graphql\n", host, port)
+	log.Printf("GraphQL endpoint running at %s/graphql", endpoint)
+	http.Handle("/", graphiql.New(endpoint+"/graphql", false))
+	log.Printf("GraphQL UI running at %s", endpoint)
 
-	http.Handle("/", graphiql.New("http://localhost:8080/graphql", false))
-	log.Printf("GraphQL UI running at http://%s:%s/\n", host, port)
 	log.Fatalf(vebosityFmt, http.ListenAndServe(config.Listen, nil))
 }

@@ -13,7 +13,7 @@ import (
 var (
 	Command = &cobra.Command{
 		Use:   "new",
-		Short: "creates a graphql-gw project with default config",
+		Short: "creates a new project with default config",
 		Run:   run,
 		Args:  cobra.ExactArgs(1),
 	}
@@ -30,27 +30,23 @@ func run(cmd *cobra.Command, args []string) {
 
 	configFile := filepath.Join(dir, "graphql-gw.yaml")
 	err := ioutil.WriteFile(configFile, []byte(`#
-# Configure the host and port the service will listen on
-listen: 0.0.0.0:8080
-
 #
 # Configure the GraphQL endpoints you will be composing here along with their schema.
 endpoints:
-  # # Example Endpoint
-  # ep1:
-  #   url: http://localhost:8081/
+  anilist:
+    url: https://graphql.anilist.co/
 
 query:
-  # # Adding an example query field that forwards to an endpoint.
-  # hi:
-  #   endpoint: ep1 # a reference to an endpoint configured above
-  #   description: provided by the hello service
-  #   query: |
-  #     query($tok: String!, $firstName:String!) {
-  #       login(token:$tok) {
-  #         hello(name:$firstName)
-  #       }
-  #     }
+
+  animeCharacters:
+    endpoint: anilist # a reference to an endpoint configured above
+    description: get characters from anilist.co
+    query: |
+      query ($page:Int, $perPage:Int, $search:String) {
+        Page(page:$page, perPage:$perPage) {
+          characters(search:$search)
+        }
+      }
 
 `), 0644)
 
@@ -62,6 +58,6 @@ query:
 	log.Printf(`Edit '%s' and then run:`, configFile)
 	log.Println()
 	log.Println(`    cd`, dir)
-	log.Println(`    grapql-gw serve`)
+	log.Println(`    graphql-gw serve`)
 	log.Println()
 }
