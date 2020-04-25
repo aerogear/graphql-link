@@ -3,6 +3,7 @@ package gateway
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
@@ -30,6 +31,7 @@ type EndpointInfo struct {
 }
 
 type Field struct {
+	Name        string `json:"name"`
 	Description string `json:"description"`
 	Endpoint    string `json:"endpoint"`
 	Query       string `json:"query"`
@@ -40,8 +42,7 @@ type Config struct {
 	DisableSchemaDownloads bool                    `json:"disable-schema-downloads"`
 	EnabledSchemaStorage   bool                    `json:"enable-schema-storage"`
 	Endpoints              map[string]EndpointInfo `json:"endpoints"`
-	Query                  map[string]Field        `json:"query"`
-	Mutation               map[string]Field        `json:"mutation"`
+	Schema                 map[string][]Field      `json:"schema"`
 }
 
 type endpoint struct {
@@ -102,22 +103,34 @@ type Mutation {}
 		endpoints[eid].schema = s
 	}
 
-	object := root.Schema.Types["Query"].(*schema.Object)
-	for fieldName, fieldConfig := range config.Query {
-
-		field := &schema.Field{}
-		if fieldConfig.Description != "" {
-			field.Desc = &schema.Description{Text: fieldConfig.Description}
+	for typeName, fields := range config.Schema {
+		object := root.Schema.Types[typeName]
+		if object == nil {
+			object = &schema.Object{Name: typeName,}
 		}
-		field.Name = fieldName
+		if object, ok := object.(*schema.Object); ok {
+			for _, fieldConfig := range fields {
+				if endpoint, ok := endpoints[fieldConfig.Endpoint]; ok {
 
-		if endpoint, ok := endpoints[fieldConfig.Endpoint]; ok {
-			err := Mount(root, object.Name, *field, fieldResolver, endpoint.schema, endpoint.client, fieldConfig.Query)
-			if err != nil {
-				return nil, err
+					var field * schema.Field
+					if fieldConfig.Name!="" {
+						field = &schema.Field{ Name: fieldConfig.Name }
+						if fieldConfig.Description != "" {
+							field.Desc = &schema.Description{Text: fieldConfig.Description}
+						}
+					}
+
+
+					err := Mount(root, object.Name, field, fieldResolver, endpoint.schema, endpoint.client, fieldConfig.Query)
+					if err != nil {
+						return nil, err
+					}
+				} else {
+					return nil, errors.New("invalid endpoint id: " + fieldConfig.Endpoint)
+				}
 			}
 		} else {
-			return nil, errors.New("invalid endpoint id: " + fieldConfig.Endpoint)
+			return nil, errors.Errorf("can only configure fields on OBJECT types: %s is a %s", typeName, object.Kind())
 		}
 	}
 	return root, nil
@@ -182,7 +195,8 @@ func Parse(schemaText string) (*schema.Schema, error) {
 	return s, nil
 }
 
-func Mount(root *graphql.Engine, rootTypeName string, rootField schema.Field, resolver resolvers.TypeAndFieldResolver, childSchema *schema.Schema, serveGraphQL graphql.ServeGraphQLFunc, childQuery string) error {
+func Mount(root *graphql.Engine, rootTypeName string, rootField *schema.Field, resolver resolvers.TypeAndFieldResolver, childSchema *schema.Schema, serveGraphQL graphql.ServeGraphQLFunc, childQuery string) error {
+
 
 	rootType := root.Schema.Types[rootTypeName].(*schema.Object)
 
@@ -196,43 +210,6 @@ func Mount(root *graphql.Engine, rootTypeName string, rootField schema.Field, re
 		return err
 	}
 
-	lastSelection := selections[len(selections)-1]
-	rootField.Type = lastSelection.Field.Type
-
-	variablesUsed := map[string]*schema.InputValue{}
-	for _, selection := range selections {
-		for _, arg := range selection.Selection.Arguments {
-			CollectVariablesUsed(variablesUsed, q.Operations[0], arg.Value)
-		}
-	}
-
-	rootField.Args = schema.InputValueList{}
-	for _, value := range variablesUsed {
-		rootField.Args = append(rootField.Args, value)
-	}
-	sort.Slice(rootField.Args, func(i, j int) bool {
-		return rootField.Args[i].Name.Text < rootField.Args[j].Name.Text
-	})
-
-	// make sure the types of the child schema get added to the root schema
-	rootField.AddIfMissing(root.Schema, childSchema)
-	for _, v := range rootField.Args {
-		t, err := schema.ResolveType(v.Type, root.Schema.Resolve)
-		if err != nil {
-			return err
-		}
-		v.Type = t
-	}
-
-	field := rootType.Fields.Get(rootField.Name)
-	if field == nil {
-		// create a field object if it does not exist...
-		field = &schema.Field{}
-		rootType.Fields = append(rootType.Fields, field)
-	}
-	// overwrite the field with the provided config
-	*field = rootField
-
 	selectionAliases := []string{}
 	for _, s := range selections {
 		selectionAliases = append(selectionAliases, s.Selection.Alias.Text)
@@ -242,7 +219,7 @@ func Mount(root *graphql.Engine, rootTypeName string, rootField schema.Field, re
 	queryTail := querySplitter.FindString(childQuery)
 	queryHead := strings.TrimSuffix(childQuery, queryTail)
 
-	resolver.Set(rootTypeName, rootField.Name, func(request *resolvers.ResolveRequest, _ resolvers.Resolution) resolvers.Resolution {
+	endpointResolver := func(request *resolvers.ResolveRequest, _ resolvers.Resolution) resolvers.Resolution {
 		return func() (reflect.Value, error) {
 
 			clientQuery := &bytes.Buffer{}
@@ -277,7 +254,70 @@ func Mount(root *graphql.Engine, rootTypeName string, rootField schema.Field, re
 			}
 			return reflect.ValueOf(r), result.Error()
 		}
-	})
+	}
+
+	// We are mounting onto a single field...
+	if rootField!=nil {
+		rootField.Type = rootType
+
+		variablesUsed := map[string]*schema.InputValue{}
+		for _, selection := range selections {
+			for _, arg := range selection.Selection.Arguments {
+				CollectVariablesUsed(variablesUsed, q.Operations[0], arg.Value)
+			}
+			rootField.Type = selection.Field.Type
+		}
+
+		rootField.Args = schema.InputValueList{}
+		for _, value := range variablesUsed {
+			rootField.Args = append(rootField.Args, value)
+		}
+		sort.Slice(rootField.Args, func(i, j int) bool {
+			return rootField.Args[i].Name.Text < rootField.Args[j].Name.Text
+		})
+
+		// make sure the types of the child schema get added to the root schema
+		rootField.AddIfMissing(root.Schema, childSchema)
+		for _, v := range rootField.Args {
+			t, err := schema.ResolveType(v.Type, root.Schema.Resolve)
+			if err != nil {
+				return err
+			}
+			v.Type = t
+		}
+
+		field := rootType.Fields.Get(rootField.Name)
+		if field == nil {
+			// create a field object if it does not exist...
+			field = &schema.Field{}
+			rootType.Fields = append(rootType.Fields, field)
+		}
+		// overwrite the field with the provided config
+		*field = *rootField
+
+		resolver.Set(rootTypeName, rootField.Name, endpointResolver)
+	} else {
+		// We are appending to the entire object
+		operationType := q.Operations[0].Type
+		childType := childSchema.EntryPoints[operationType].(*schema.Object)
+		for _, s := range selections {
+			if t, ok := s.Field.Type.(* schema.Object); ok {
+				childType = t
+			} else {
+				return fmt.Errorf("a field name is reqired for the query selection")
+			}
+		}
+
+		for _, f := range childType.Fields {
+			f.AddIfMissing(root.Schema, childSchema)
+			if rootType.Fields.Get(f.Name) !=nil {
+				// Should we error out instead?
+				continue
+			}
+			rootType.Fields = append(rootType.Fields, f)
+		}
+	}
+
 	return nil
 }
 
@@ -324,9 +364,9 @@ func GetSelectedFields(childSchema *schema.Schema, q *query.Document) ([]exec.Fi
 		OnType:        onType,
 	}
 	selections := op.Selections
-	if len(selections) == 0 {
-		return nil, qerrors.New("No selections").WithStack()
-	}
+	//if len(selections) == 0 {
+	//	return nil, qerrors.New("No selections").WithStack()
+	//}
 
 	var result []exec.FieldSelection
 
