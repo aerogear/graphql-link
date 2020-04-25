@@ -30,23 +30,45 @@ func run(cmd *cobra.Command, args []string) {
 
 	configFile := filepath.Join(dir, "graphql-gw.yaml")
 	err := ioutil.WriteFile(configFile, []byte(`#
+# Configure the host and port the service will listen on
+listen: localhost:8080
+
 #
 # Configure the GraphQL endpoints you will be composing here along with their schema.
 endpoints:
   anilist:
     url: https://graphql.anilist.co/
 
-query:
+schema:
+  # Configure fields we add the Query Type.
+  Query:
 
-  animeCharacters:
-    endpoint: anilist # a reference to an endpoint configured above
-    description: get characters from anilist.co
-    query: |
-      query ($page:Int, $perPage:Int, $search:String) {
-        Page(page:$page, perPage:$perPage) {
-          characters(search:$search)
+    # imports all the fields into Query type.
+    - endpoint: anilist
+      query: |
+        {}
+
+    # Adds only a test_field
+    - endpoint: anilist
+      query: |
+        {}
+      name: test_field
+
+    # Adds a animeCharacters($page:Int, $perPage:Int, $search:String) field
+    - endpoint: anilist
+      query: |
+        query ($page:Int, $perPage:Int, $search:String) {
+          Page(page:$page, perPage:$perPage) {
+            characters(search:$search)
+          }
         }
-      }
+      name: animeCharacters
+
+  Mutation:
+    # imports all the fields into Query type.
+    - endpoint: anilist
+      query: |
+        mutation {}
 
 `), 0644)
 
