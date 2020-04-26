@@ -24,19 +24,20 @@ func TestGateway(t *testing.T) {
 				URL: helloServer.URL,
 			},
 		},
-		Query: map[string]gateway.Field{
-			"hi": {
-				Description: "hi: provided by the hello service",
-				Endpoint:    "hello",
-				Query: `
-query($tok: String!, $firstName:String!) {
-	login(token:$tok) {
-		hello(name:$firstName)
-	}
-}`,
+		Schema: map[string][]gateway.Field{
+			"Query": {
+				{
+					Name:        "hi",
+					Description: "hi: provided by the hello service",
+					Endpoint:    "hello",
+					Query: `query($tok: String!, $firstName:String!) {
+								login(token:$tok) {
+									hello(name:$firstName)
+								}
+							}`,
+				},
 			},
 		},
-		Mutation: map[string]gateway.Field{},
 	})
 	require.NoError(t, err)
 
@@ -65,7 +66,6 @@ schema {
 
 	assert.NoError(t, res.Error())
 	assert.Equal(t, `{"hi":"(03D5FDA): Hello Hiram"}`, string(res.Data))
-
 }
 
 func startHelloGraphQL() *httptest.Server {

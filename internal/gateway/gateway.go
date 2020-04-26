@@ -14,8 +14,8 @@ import (
 	"strings"
 
 	"github.com/chirino/graphql"
-	qerrors "github.com/chirino/graphql/errors"
 	"github.com/chirino/graphql/exec"
+	"github.com/chirino/graphql/qerrors"
 	"github.com/chirino/graphql/query"
 	"github.com/chirino/graphql/relay"
 	"github.com/chirino/graphql/resolvers"
@@ -106,20 +106,19 @@ type Mutation {}
 	for typeName, fields := range config.Schema {
 		object := root.Schema.Types[typeName]
 		if object == nil {
-			object = &schema.Object{Name: typeName,}
+			object = &schema.Object{Name: typeName}
 		}
 		if object, ok := object.(*schema.Object); ok {
 			for _, fieldConfig := range fields {
 				if endpoint, ok := endpoints[fieldConfig.Endpoint]; ok {
 
-					var field * schema.Field
-					if fieldConfig.Name!="" {
-						field = &schema.Field{ Name: fieldConfig.Name }
+					var field *schema.Field
+					if fieldConfig.Name != "" {
+						field = &schema.Field{Name: fieldConfig.Name}
 						if fieldConfig.Description != "" {
 							field.Desc = &schema.Description{Text: fieldConfig.Description}
 						}
 					}
-
 
 					err := Mount(root, object.Name, field, fieldResolver, endpoint.schema, endpoint.client, fieldConfig.Query)
 					if err != nil {
@@ -197,7 +196,6 @@ func Parse(schemaText string) (*schema.Schema, error) {
 
 func Mount(root *graphql.Engine, rootTypeName string, rootField *schema.Field, resolver resolvers.TypeAndFieldResolver, childSchema *schema.Schema, serveGraphQL graphql.ServeGraphQLFunc, childQuery string) error {
 
-
 	rootType := root.Schema.Types[rootTypeName].(*schema.Object)
 
 	q, qerr := query.Parse(childQuery)
@@ -257,7 +255,7 @@ func Mount(root *graphql.Engine, rootTypeName string, rootField *schema.Field, r
 	}
 
 	// We are mounting onto a single field...
-	if rootField!=nil {
+	if rootField != nil {
 		rootField.Type = rootType
 
 		variablesUsed := map[string]*schema.InputValue{}
@@ -301,7 +299,7 @@ func Mount(root *graphql.Engine, rootTypeName string, rootField *schema.Field, r
 		operationType := q.Operations[0].Type
 		childType := childSchema.EntryPoints[operationType].(*schema.Object)
 		for _, s := range selections {
-			if t, ok := s.Field.Type.(* schema.Object); ok {
+			if t, ok := s.Field.Type.(*schema.Object); ok {
 				childType = t
 			} else {
 				return fmt.Errorf("a field name is reqired for the query selection")
@@ -310,7 +308,7 @@ func Mount(root *graphql.Engine, rootTypeName string, rootField *schema.Field, r
 
 		for _, f := range childType.Fields {
 			f.AddIfMissing(root.Schema, childSchema)
-			if rootType.Fields.Get(f.Name) !=nil {
+			if rootType.Fields.Get(f.Name) != nil {
 				// Should we error out instead?
 				continue
 			}
@@ -321,7 +319,7 @@ func Mount(root *graphql.Engine, rootTypeName string, rootField *schema.Field, r
 	return nil
 }
 
-func CollectVariablesUsed(usedVariables map[string]*schema.InputValue, op *query.Operation, l schema.Literal) *qerrors.QueryError {
+func CollectVariablesUsed(usedVariables map[string]*schema.InputValue, op *query.Operation, l schema.Literal) *graphql.Error {
 	switch l := l.(type) {
 	case *schema.ObjectLit:
 		for _, f := range l.Fields {
@@ -340,8 +338,7 @@ func CollectVariablesUsed(usedVariables map[string]*schema.InputValue, op *query
 	case *schema.Variable:
 		v := op.Vars.Get(l.Name)
 		if v == nil {
-			return qerrors.
-				Errorf("variable name '%s' not found defined in operation arguments", l.Name).
+			return qerrors.Errorf("variable name '%s' not found defined in operation arguments", l.Name).
 				WithLocations(l.Loc).
 				WithStack()
 		}
@@ -364,16 +361,13 @@ func GetSelectedFields(childSchema *schema.Schema, q *query.Document) ([]exec.Fi
 		OnType:        onType,
 	}
 	selections := op.Selections
-	//if len(selections) == 0 {
-	//	return nil, qerrors.New("No selections").WithStack()
-	//}
 
 	var result []exec.FieldSelection
 
 	for len(selections) > 0 {
 		fields, errs := fsc.Apply(selections)
 		if len(errs) > 0 {
-			return nil, qerrors.AsMulti(errs)
+			return nil, errs.Error()
 		}
 
 		firstSelection := selections[0]
