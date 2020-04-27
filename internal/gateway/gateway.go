@@ -217,42 +217,6 @@ func Mount(root *graphql.Engine, rootTypeName string, rootField *schema.Field, r
 	queryTail := querySplitter.FindString(childQuery)
 	queryHead := strings.TrimSuffix(childQuery, queryTail)
 
-	endpointResolver := func(request *resolvers.ResolveRequest, _ resolvers.Resolution) resolvers.Resolution {
-		return func() (reflect.Value, error) {
-
-			clientQuery := &bytes.Buffer{}
-			clientQuery.WriteString(queryHead)
-			request.Selection.Selections.WriteTo(clientQuery)
-			clientQuery.WriteString(queryTail)
-
-			result := serveGraphQL(&graphql.Request{
-				Context:   request.Context.GetContext(),
-				Query:     clientQuery.String(),
-				Variables: request.Args,
-			})
-
-			if len(result.Errors) > 0 {
-				log.Println("query failed: ", childQuery)
-				return reflect.Value{}, result.Error()
-			}
-
-			data := map[string]interface{}{}
-			err := json.Unmarshal(result.Data, &data)
-			if err != nil {
-				return reflect.Value{}, err
-			}
-
-			var r interface{} = data
-			for _, alias := range selectionAliases {
-				if m, ok := r.(map[string]interface{}); ok {
-					r = m[alias]
-				} else {
-					return reflect.Value{}, errors.Errorf("expected json field not found: " + strings.Join(selectionAliases, "."))
-				}
-			}
-			return reflect.ValueOf(r), result.Error()
-		}
-	}
 
 	// We are mounting onto a single field...
 	if rootField != nil {
@@ -293,7 +257,24 @@ func Mount(root *graphql.Engine, rootTypeName string, rootField *schema.Field, r
 		// overwrite the field with the provided config
 		*field = *rootField
 
-		resolver.Set(rootTypeName, rootField.Name, endpointResolver)
+		resolver.Set(rootTypeName, rootField.Name, func(request *resolvers.ResolveRequest, _ resolvers.Resolution) resolvers.Resolution {
+			return func() (reflect.Value, error) {
+
+				clientQuery := &bytes.Buffer{}
+				clientQuery.WriteString(queryHead)
+				request.Selection.Selections.WriteTo(clientQuery)
+				clientQuery.WriteString(queryTail)
+
+				query := clientQuery.String()
+				result := serveGraphQL(&graphql.Request{
+					Context:   request.Context.GetContext(),
+					Query:     query,
+					Variables: request.Args,
+				})
+
+				return processResponse(result, query, selectionAliases)
+			}
+		})
 	} else {
 		// We are appending to the entire object
 		operationType := q.Operations[0].Type
@@ -306,6 +287,25 @@ func Mount(root *graphql.Engine, rootTypeName string, rootField *schema.Field, r
 			}
 		}
 
+		endpointResolver := func(request *resolvers.ResolveRequest, _ resolvers.Resolution) resolvers.Resolution {
+			return func() (reflect.Value, error) {
+
+				clientQuery := &bytes.Buffer{}
+				clientQuery.WriteString(queryHead)
+				request.Selection.WriteTo(clientQuery)
+				clientQuery.WriteString(queryTail)
+
+				query := clientQuery.String()
+				result := serveGraphQL(&graphql.Request{
+					Context:   request.Context.GetContext(),
+					Query:     query,
+					Variables: request.Args,
+				})
+
+				return processResponse(result, query, []string{request.Field.Name})
+			}
+		}
+
 		for _, f := range childType.Fields {
 			f.AddIfMissing(root.Schema, childSchema)
 			if rootType.Fields.Get(f.Name) != nil {
@@ -313,10 +313,35 @@ func Mount(root *graphql.Engine, rootTypeName string, rootField *schema.Field, r
 				continue
 			}
 			rootType.Fields = append(rootType.Fields, f)
+			resolver.Set(rootType.Name, f.Name, endpointResolver)
 		}
+
 	}
 
 	return nil
+}
+
+func processResponse(result *graphql.Response, query string, selectionAliases []string) (reflect.Value, error) {
+	if len(result.Errors) > 0 {
+		log.Println("query failed: ", query)
+		return reflect.Value{}, result.Error()
+	}
+
+	data := map[string]interface{}{}
+	err := json.Unmarshal(result.Data, &data)
+	if err != nil {
+		return reflect.Value{}, err
+	}
+
+	var r interface{} = data
+	for _, alias := range selectionAliases {
+		if m, ok := r.(map[string]interface{}); ok {
+			r = m[alias]
+		} else {
+			return reflect.Value{}, errors.Errorf("expected json field not found: " + strings.Join(selectionAliases, "."))
+		}
+	}
+	return reflect.ValueOf(r), result.Error()
 }
 
 func CollectVariablesUsed(usedVariables map[string]*schema.InputValue, op *query.Operation, l schema.Literal) *graphql.Error {
