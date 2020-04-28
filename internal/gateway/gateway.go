@@ -58,7 +58,7 @@ type endpoint struct {
 
 var validGraphQLIdentifierRegex = regexp.MustCompile(`^[A-Za-z_][A-Za-z_0-9]*$`)
 
-func NewEngine(config Config) (*graphql.Engine, error) {
+func New(config Config) (*graphql.Engine, error) {
 
 	if config.ConfigDirectory == "" {
 		config.ConfigDirectory = "."
@@ -120,7 +120,7 @@ type Mutation {}
 					if fieldConfig.Description != "" {
 						field.Desc = &schema.Description{Text: fieldConfig.Description}
 					}
-					err := Mount(root, object.Name, field, fieldResolver, endpoint.schema, endpoint.client, fieldConfig.Query)
+					err := mount(root, object.Name, field, fieldResolver, endpoint.schema, endpoint.client, fieldConfig.Query)
 					if err != nil {
 						return nil, err
 					}
@@ -197,7 +197,7 @@ func Parse(schemaText string) (*schema.Schema, error) {
 var emptySelectionRegex = regexp.MustCompile(`{\s*}\s*$`)
 var querySplitter = regexp.MustCompile(`[}\s]*$`)
 
-func Mount(gateway *graphql.Engine, mountTypeName string, mountField schema.Field, resolver resolvers.TypeAndFieldResolver, upstreamSchema *schema.Schema, serveGraphQL graphql.ServeGraphQLFunc, upstreamQuery string) error {
+func mount(gateway *graphql.Engine, mountTypeName string, mountField schema.Field, resolver resolvers.TypeAndFieldResolver, upstreamSchema *schema.Schema, serveGraphQL graphql.ServeGraphQLFunc, upstreamQuery string) error {
 
 	upstreamQueryDoc, qerr := query.Parse(upstreamQuery)
 	if qerr != nil {
@@ -208,7 +208,7 @@ func Mount(gateway *graphql.Engine, mountTypeName string, mountField schema.Fiel
 	}
 	upstreamOp := upstreamQueryDoc.Operations[0]
 
-	selections, err := GetSelectedFields(upstreamSchema, upstreamQueryDoc, upstreamOp)
+	selections, err := getSelectedFields(upstreamSchema, upstreamQueryDoc, upstreamOp)
 	if err != nil {
 		return err
 	}
@@ -236,7 +236,7 @@ func Mount(gateway *graphql.Engine, mountTypeName string, mountField schema.Fiel
 		// Get all the field names from it and mount them...
 		for _, f := range upstreamResultType.Fields {
 			upstreamQuery = fmt.Sprintf("%s { %s } %s", queryHead, f.Name, queryTail)
-			err = Mount(gateway, mountTypeName, *f, resolver, upstreamSchema, serveGraphQL, upstreamQuery)
+			err = mount(gateway, mountTypeName, *f, resolver, upstreamSchema, serveGraphQL, upstreamQuery)
 			if err != nil {
 				return err
 			}
@@ -248,19 +248,32 @@ func Mount(gateway *graphql.Engine, mountTypeName string, mountField schema.Fiel
 	variablesUsed := map[string]*schema.InputValue{}
 	for _, selection := range selections {
 		for _, arg := range selection.Selection.Arguments {
-			CollectVariablesUsed(variablesUsed, upstreamQueryDoc.Operations[0], arg.Value)
+			collectVariablesUsed(variablesUsed, upstreamQueryDoc.Operations[0], arg.Value)
 		}
 	}
 
+	mountField.Args = []*schema.InputValue{}
+
+	// query {} has no selections...
 	if len(selections) > 0 {
 		lastSelection := selections[len(selections)-1]
 		mountField.Type = lastSelection.Field.Type
-		mountField.Args = []*schema.InputValue{}
 
+	outer:
 		for _, arg := range lastSelection.Field.Args {
+
 			if variablesUsed[arg.Name.Text] != nil {
-				mountField.Args = append(mountField.Args, arg)
+				continue
 			}
+			for _, sarg := range lastSelection.Selection.Arguments {
+				v := map[string]*schema.InputValue{}
+				collectVariablesUsed(v, upstreamQueryDoc.Operations[0], sarg.Value)
+				if len(v) != 0 {
+					continue outer
+				}
+			}
+
+			mountField.Args = append(mountField.Args, arg)
 		}
 	}
 
@@ -301,6 +314,8 @@ func Mount(gateway *graphql.Engine, mountTypeName string, mountField schema.Fiel
 
 			clientQuery := &bytes.Buffer{}
 			clientQuery.WriteString(queryHead)
+
+			//request.Selection.Arguments.WriteTo(clientQuery)
 			request.Selection.Selections.WriteTo(clientQuery)
 			clientQuery.WriteString(queryTail)
 
@@ -336,18 +351,18 @@ func Mount(gateway *graphql.Engine, mountTypeName string, mountField schema.Fiel
 	return nil
 }
 
-func CollectVariablesUsed(usedVariables map[string]*schema.InputValue, op *query.Operation, l schema.Literal) *graphql.Error {
+func collectVariablesUsed(usedVariables map[string]*schema.InputValue, op *query.Operation, l schema.Literal) *graphql.Error {
 	switch l := l.(type) {
 	case *schema.ObjectLit:
 		for _, f := range l.Fields {
-			err := CollectVariablesUsed(usedVariables, op, f.Value)
+			err := collectVariablesUsed(usedVariables, op, f.Value)
 			if err != nil {
 				return err
 			}
 		}
 	case *schema.ListLit:
 		for _, entry := range l.Entries {
-			err := CollectVariablesUsed(usedVariables, op, entry)
+			err := collectVariablesUsed(usedVariables, op, entry)
 			if err != nil {
 				return err
 			}
@@ -364,7 +379,7 @@ func CollectVariablesUsed(usedVariables map[string]*schema.InputValue, op *query
 	return nil
 }
 
-func GetSelectedFields(upstreamSchema *schema.Schema, q *query.Document, op *query.Operation) ([]exec.FieldSelection, error) {
+func getSelectedFields(upstreamSchema *schema.Schema, q *query.Document, op *query.Operation) ([]exec.FieldSelection, error) {
 	onType := upstreamSchema.EntryPoints[op.Type]
 
 	fsc := exec.FieldSelectionContext{

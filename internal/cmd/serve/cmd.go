@@ -66,7 +66,7 @@ func run(cmd *cobra.Command, args []string) {
 		config.EnabledSchemaStorage = true
 	}
 
-	engine, err := gateway.NewEngine(config.Config)
+	engine, err := gateway.New(config.Config)
 	if err != nil {
 		log.Fatalf(vebosityFmt, err)
 	}

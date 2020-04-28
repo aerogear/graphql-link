@@ -25,7 +25,7 @@ func main() {
 	showsServer := httptest.NewServer(&relay.Handler{ServeGraphQLStream: showsEngine.ServeGraphQLStream})
 	defer showsServer.Close()
 
-	engine, err := gateway.NewEngine(gateway.Config{
+	engine, err := gateway.New(gateway.Config{
 		Endpoints: map[string]gateway.EndpointInfo{
 			"chracters": {
 				URL:    chractersServer.URL,

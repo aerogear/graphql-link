@@ -18,7 +18,7 @@ func TestMountNamedFieldWithVariableNames(t *testing.T) {
 	charactersServer := httptest.NewServer(&relay.Handler{ServeGraphQLStream: charactersEngine.ServeGraphQLStream})
 	defer charactersServer.Close()
 
-	engine, err := gateway.NewEngine(gateway.Config{
+	engine, err := gateway.New(gateway.Config{
 		Endpoints: map[string]gateway.EndpointInfo{
 			"characters": {
 				URL:    charactersServer.URL,
@@ -77,13 +77,59 @@ schema {
 	assert.Equal(t, `{"mysearch":{"name":{"full":"Rukia Kuchiki"}}}`, string(res.Data))
 }
 
+func TestMountNamedFieldWithArguments(t *testing.T) {
+
+	t.Skip("failing at the moment... :(")
+	charactersEngine := characters.New()
+	charactersServer := httptest.NewServer(&relay.Handler{ServeGraphQLStream: charactersEngine.ServeGraphQLStream})
+	defer charactersServer.Close()
+
+	engine, err := gateway.New(gateway.Config{
+		Endpoints: map[string]gateway.EndpointInfo{
+			"characters": {
+				URL:    charactersServer.URL,
+				Suffix: "_t1",
+			},
+		},
+		Types: []gateway.TypeConfig{
+			{
+				Name: `Query`,
+				Fields: []gateway.Field{
+					{
+						Name:     "mysearch",
+						Endpoint: "characters",
+						Query: `query {
+                           search
+                        }`,
+					},
+				},
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	server := httptest.NewServer(&relay.Handler{Engine: engine})
+	defer server.Close()
+
+	client := relay.NewClient(server.URL)
+	res := client.ServeGraphQL(&graphql.EngineRequest{
+		Query: `
+{
+	mysearch(name:"Rukia") { name { full }}
+}`,
+	})
+
+	require.NoError(t, res.Error())
+	assert.Equal(t, `{"mysearch":{"name":{"full":"Rukia Kuchiki"}}}`, string(res.Data))
+}
+
 func TestMountRootQueryOnNamedField(t *testing.T) {
 
 	charactersEngine := characters.New()
 	charactersServer := httptest.NewServer(&relay.Handler{ServeGraphQLStream: charactersEngine.ServeGraphQLStream})
 	defer charactersServer.Close()
 
-	gateway, err := gateway.NewEngine(gateway.Config{
+	gateway, err := gateway.New(gateway.Config{
 		Endpoints: map[string]gateway.EndpointInfo{
 			"characters": {
 				URL:    charactersServer.URL,
@@ -145,7 +191,7 @@ func TestMountAllFieldsOnRootQuery(t *testing.T) {
 	charactersServer := httptest.NewServer(&relay.Handler{ServeGraphQLStream: charactersEngine.ServeGraphQLStream})
 	defer charactersServer.Close()
 
-	gateway, err := gateway.NewEngine(gateway.Config{
+	gateway, err := gateway.New(gateway.Config{
 		Endpoints: map[string]gateway.EndpointInfo{
 			"characters": {
 				URL:    charactersServer.URL,
@@ -179,7 +225,7 @@ type Name_t1 {
 }
 type Query {
   characters:[Character_t1!]!
-  search:Character_t1
+  search(name:String!):Character_t1
 }
 schema {
   mutation: Mutation
