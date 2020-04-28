@@ -77,7 +77,7 @@ func run(cmd *cobra.Command, args []string) {
 	}
 
 	endpoint := fmt.Sprintf("http://%s:%s", host, port)
-	http.Handle("/graphql", &relay.Handler{Engine: engine})
+	http.Handle("/graphql", &relay.Handler{ServeGraphQLStream: engine.ServeGraphQLStream})
 	log.Printf("GraphQL endpoint running at %s/graphql", endpoint)
 	http.Handle("/", graphiql.New(endpoint+"/graphql", false))
 	log.Printf("GraphQL UI running at %s", endpoint)

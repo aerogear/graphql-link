@@ -116,15 +116,10 @@ type Mutation {}
 		if object, ok := object.(*schema.Object); ok {
 			for _, fieldConfig := range typeConfig.Fields {
 				if endpoint, ok := endpoints[fieldConfig.Endpoint]; ok {
-
-					var field *schema.Field
-					if fieldConfig.Name != "" {
-						field = &schema.Field{Name: fieldConfig.Name}
-						if fieldConfig.Description != "" {
-							field.Desc = &schema.Description{Text: fieldConfig.Description}
-						}
+					field := schema.Field{Name: fieldConfig.Name}
+					if fieldConfig.Description != "" {
+						field.Desc = &schema.Description{Text: fieldConfig.Description}
 					}
-
 					err := Mount(root, object.Name, field, fieldResolver, endpoint.schema, endpoint.client, fieldConfig.Query)
 					if err != nil {
 						return nil, err
@@ -199,156 +194,146 @@ func Parse(schemaText string) (*schema.Schema, error) {
 	return s, nil
 }
 
-func Mount(root *graphql.Engine, rootTypeName string, rootField *schema.Field, resolver resolvers.TypeAndFieldResolver, childSchema *schema.Schema, serveGraphQL graphql.ServeGraphQLFunc, childQuery string) error {
+var emptySelectionRegex = regexp.MustCompile(`{\s*}\s*$`)
+var querySplitter = regexp.MustCompile(`[}\s]*$`)
 
-	rootType := root.Schema.Types[rootTypeName].(*schema.Object)
+func Mount(gateway *graphql.Engine, mountTypeName string, mountField schema.Field, resolver resolvers.TypeAndFieldResolver, upstreamSchema *schema.Schema, serveGraphQL graphql.ServeGraphQLFunc, upstreamQuery string) error {
 
-	q, qerr := query.Parse(childQuery)
+	upstreamQueryDoc, qerr := query.Parse(upstreamQuery)
 	if qerr != nil {
 		return qerr
 	}
+	if len(upstreamQueryDoc.Operations) != 1 {
+		return qerrors.New("query document can only contain one operation")
+	}
+	upstreamOp := upstreamQueryDoc.Operations[0]
 
-	selections, err := GetSelectedFields(childSchema, q)
+	selections, err := GetSelectedFields(upstreamSchema, upstreamQueryDoc, upstreamOp)
 	if err != nil {
 		return err
 	}
+
+	// find the result type of the upstream query.
+	upstreamResultType := upstreamSchema.EntryPoints[upstreamOp.Type].(*schema.Object)
+	for _, s := range selections {
+		if t, ok := schema.DeepestType(s.Field.Type).(*schema.Object); ok {
+			upstreamResultType = t
+		} else {
+			return fmt.Errorf("type is not an object: %s", s.Field.Name)
+		}
+	}
+
+	queryTail := ""
+	queryHead := ""
+	if emptySelectionRegex.MatchString(upstreamQuery) {
+		queryHead = emptySelectionRegex.ReplaceAllString(upstreamQuery, "")
+	} else {
+		queryTail = querySplitter.FindString(upstreamQuery)
+		queryHead = strings.TrimSuffix(upstreamQuery, queryTail)
+	}
+
+	if mountField.Name == "" {
+		// Get all the field names from it and mount them...
+		for _, f := range upstreamResultType.Fields {
+			upstreamQuery = fmt.Sprintf("%s { %s } %s", queryHead, f.Name, queryTail)
+			err = Mount(gateway, mountTypeName, *f, resolver, upstreamSchema, serveGraphQL, upstreamQuery)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	mountField.Type = upstreamResultType
+
+	variablesUsed := map[string]*schema.InputValue{}
+	for _, selection := range selections {
+		for _, arg := range selection.Selection.Arguments {
+			CollectVariablesUsed(variablesUsed, upstreamQueryDoc.Operations[0], arg.Value)
+		}
+	}
+
+	if len(selections) > 0 {
+		lastSelection := selections[len(selections)-1]
+		mountField.Type = lastSelection.Field.Type
+		mountField.Args = []*schema.InputValue{}
+
+		for _, arg := range lastSelection.Field.Args {
+			if variablesUsed[arg.Name.Text] != nil {
+				mountField.Args = append(mountField.Args, arg)
+			}
+		}
+	}
+
+	for _, value := range variablesUsed {
+		mountField.Args = append(mountField.Args, value)
+	}
+	sort.Slice(mountField.Args, func(i, j int) bool {
+		return mountField.Args[i].Name.Text < mountField.Args[j].Name.Text
+	})
+
+	// make sure the types of the upstream schema get added to the root schema
+	mountField.AddIfMissing(gateway.Schema, upstreamSchema)
+	for _, v := range mountField.Args {
+		t, err := schema.ResolveType(v.Type, gateway.Schema.Resolve)
+		if err != nil {
+			return err
+		}
+		v.Type = t
+	}
+
+	mountType := gateway.Schema.Types[mountTypeName].(*schema.Object)
+	field := mountType.Fields.Get(mountField.Name)
+	if field == nil {
+		// create a field object if it does not exist...
+		field = &schema.Field{}
+		mountType.Fields = append(mountType.Fields, field)
+	}
+	// overwrite the field with the provided config
+	*field = mountField
 
 	selectionAliases := []string{}
 	for _, s := range selections {
 		selectionAliases = append(selectionAliases, s.Selection.Alias.Text)
 	}
 
-	var querySplitter = regexp.MustCompile(`[}\s]*$`) //childSchema
-	queryTail := querySplitter.FindString(childQuery)
-	queryHead := strings.TrimSuffix(childQuery, queryTail)
+	resolver.Set(mountTypeName, mountField.Name, func(request *resolvers.ResolveRequest, _ resolvers.Resolution) resolvers.Resolution {
+		return func() (reflect.Value, error) {
 
-	// We are mounting onto a single field...
-	if rootField != nil {
+			clientQuery := &bytes.Buffer{}
+			clientQuery.WriteString(queryHead)
+			request.Selection.Selections.WriteTo(clientQuery)
+			clientQuery.WriteString(queryTail)
 
-		operationType := q.Operations[0].Type
-		childType := childSchema.EntryPoints[operationType].(*schema.Object)
+			query := clientQuery.String()
+			result := serveGraphQL(&graphql.Request{
+				Context:   request.Context.GetContext(),
+				Query:     query,
+				Variables: request.Args,
+			})
 
-		rootField.Type = childType
-		variablesUsed := map[string]*schema.InputValue{}
-		for _, selection := range selections {
-			for _, arg := range selection.Selection.Arguments {
-				CollectVariablesUsed(variablesUsed, q.Operations[0], arg.Value)
+			if len(result.Errors) > 0 {
+				log.Println("query failed: ", query)
+				return reflect.Value{}, result.Error()
 			}
-			rootField.Type = selection.Field.Type
-		}
 
-		rootField.Args = schema.InputValueList{}
-		for _, value := range variablesUsed {
-			rootField.Args = append(rootField.Args, value)
-		}
-		sort.Slice(rootField.Args, func(i, j int) bool {
-			return rootField.Args[i].Name.Text < rootField.Args[j].Name.Text
-		})
-
-		// make sure the types of the child schema get added to the root schema
-		rootField.AddIfMissing(root.Schema, childSchema)
-		for _, v := range rootField.Args {
-			t, err := schema.ResolveType(v.Type, root.Schema.Resolve)
+			data := map[string]interface{}{}
+			err := json.Unmarshal(result.Data, &data)
 			if err != nil {
-				return err
+				return reflect.Value{}, err
 			}
-			v.Type = t
-		}
 
-		field := rootType.Fields.Get(rootField.Name)
-		if field == nil {
-			// create a field object if it does not exist...
-			field = &schema.Field{}
-			rootType.Fields = append(rootType.Fields, field)
-		}
-		// overwrite the field with the provided config
-		*field = *rootField
-
-		resolver.Set(rootTypeName, rootField.Name, func(request *resolvers.ResolveRequest, _ resolvers.Resolution) resolvers.Resolution {
-			return func() (reflect.Value, error) {
-
-				clientQuery := &bytes.Buffer{}
-				clientQuery.WriteString(queryHead)
-				request.Selection.Selections.WriteTo(clientQuery)
-				clientQuery.WriteString(queryTail)
-
-				query := clientQuery.String()
-				result := serveGraphQL(&graphql.Request{
-					Context:   request.Context.GetContext(),
-					Query:     query,
-					Variables: request.Args,
-				})
-
-				return processResponse(result, query, selectionAliases)
+			var r interface{} = data
+			for _, alias := range selectionAliases {
+				if m, ok := r.(map[string]interface{}); ok {
+					r = m[alias]
+				} else {
+					return reflect.Value{}, errors.Errorf("expected json field not found: " + strings.Join(selectionAliases, "."))
+				}
 			}
-		})
-	} else {
-		// We are appending to the entire object
-		operationType := q.Operations[0].Type
-		childType := childSchema.EntryPoints[operationType].(*schema.Object)
-		for _, s := range selections {
-			if t, ok := s.Field.Type.(*schema.Object); ok {
-				childType = t
-			} else {
-				return fmt.Errorf("a field name is reqired for the query selection")
-			}
+			return reflect.ValueOf(r), result.Error()
 		}
-
-		endpointResolver := func(request *resolvers.ResolveRequest, _ resolvers.Resolution) resolvers.Resolution {
-			return func() (reflect.Value, error) {
-
-				clientQuery := &bytes.Buffer{}
-				clientQuery.WriteString(queryHead)
-				request.Selection.WriteTo(clientQuery)
-				clientQuery.WriteString(queryTail)
-
-				query := clientQuery.String()
-				result := serveGraphQL(&graphql.Request{
-					Context:   request.Context.GetContext(),
-					Query:     query,
-					Variables: request.Args,
-				})
-
-				return processResponse(result, query, []string{request.Field.Name})
-			}
-		}
-
-		for _, f := range childType.Fields {
-			f.AddIfMissing(root.Schema, childSchema)
-			if rootType.Fields.Get(f.Name) != nil {
-				// Should we error out instead?
-				continue
-			}
-			rootType.Fields = append(rootType.Fields, f)
-			resolver.Set(rootType.Name, f.Name, endpointResolver)
-		}
-
-	}
-
+	})
 	return nil
-}
-
-func processResponse(result *graphql.Response, query string, selectionAliases []string) (reflect.Value, error) {
-	if len(result.Errors) > 0 {
-		log.Println("query failed: ", query)
-		return reflect.Value{}, result.Error()
-	}
-
-	data := map[string]interface{}{}
-	err := json.Unmarshal(result.Data, &data)
-	if err != nil {
-		return reflect.Value{}, err
-	}
-
-	var r interface{} = data
-	for _, alias := range selectionAliases {
-		if m, ok := r.(map[string]interface{}); ok {
-			r = m[alias]
-		} else {
-			return reflect.Value{}, errors.Errorf("expected json field not found: " + strings.Join(selectionAliases, "."))
-		}
-	}
-	return reflect.ValueOf(r), result.Error()
 }
 
 func CollectVariablesUsed(usedVariables map[string]*schema.InputValue, op *query.Operation, l schema.Literal) *graphql.Error {
@@ -379,16 +364,12 @@ func CollectVariablesUsed(usedVariables map[string]*schema.InputValue, op *query
 	return nil
 }
 
-func GetSelectedFields(childSchema *schema.Schema, q *query.Document) ([]exec.FieldSelection, error) {
-	if len(q.Operations) != 1 {
-		return nil, qerrors.New("query document can only contain one operation")
-	}
-	op := q.Operations[0]
-	onType := childSchema.EntryPoints[op.Type]
+func GetSelectedFields(upstreamSchema *schema.Schema, q *query.Document, op *query.Operation) ([]exec.FieldSelection, error) {
+	onType := upstreamSchema.EntryPoints[op.Type]
 
 	fsc := exec.FieldSelectionContext{
 		Path:          []string{},
-		Schema:        childSchema,
+		Schema:        upstreamSchema,
 		QueryDocument: q,
 		OnType:        onType,
 	}
