@@ -12,6 +12,7 @@ GraphQL endpoints.
 * Upstream types, that are accessible, are automatically merged into the gateway schema.
 * Type conflict due to the same type name existing in multiple upstream endpoints can be avoided
   by renaming types in the gateway.
+* Supports GraphQL Queries and Mutations
 
 ### Installing
 
