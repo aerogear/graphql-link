@@ -27,7 +27,7 @@ type EndpointInfo struct {
 	URL    string `json:"url"`
 	Prefix string `json:"prefix"`
 	Suffix string `json:"suffix"`
-	Schema string `json:"schema"`
+	Schema string `json:"types"`
 }
 
 type Field struct {
@@ -37,12 +37,17 @@ type Field struct {
 	Query       string `json:"query"`
 }
 
+type TypeConfig struct {
+	Name   string  `json:"name"`
+	Fields []Field `json:"fields"`
+}
+
 type Config struct {
 	ConfigDirectory        string                  `json:"-"`
 	DisableSchemaDownloads bool                    `json:"disable-schema-downloads"`
 	EnabledSchemaStorage   bool                    `json:"enable-schema-storage"`
 	Endpoints              map[string]EndpointInfo `json:"endpoints"`
-	Schema                 map[string][]Field      `json:"schema"`
+	Types                  []TypeConfig            `json:"types"`
 }
 
 type endpoint struct {
@@ -103,13 +108,13 @@ type Mutation {}
 		endpoints[eid].schema = s
 	}
 
-	for typeName, fields := range config.Schema {
-		object := root.Schema.Types[typeName]
+	for _, typeConfig := range config.Types {
+		object := root.Schema.Types[typeConfig.Name]
 		if object == nil {
-			object = &schema.Object{Name: typeName}
+			object = &schema.Object{Name: typeConfig.Name}
 		}
 		if object, ok := object.(*schema.Object); ok {
-			for _, fieldConfig := range fields {
+			for _, fieldConfig := range typeConfig.Fields {
 				if endpoint, ok := endpoints[fieldConfig.Endpoint]; ok {
 
 					var field *schema.Field
@@ -129,7 +134,7 @@ type Mutation {}
 				}
 			}
 		} else {
-			return nil, errors.Errorf("can only configure fields on OBJECT types: %s is a %s", typeName, object.Kind())
+			return nil, errors.Errorf("can only configure fields on OBJECT types: %s is a %s", typeConfig.Name, object.Kind())
 		}
 	}
 	return root, nil
@@ -217,11 +222,13 @@ func Mount(root *graphql.Engine, rootTypeName string, rootField *schema.Field, r
 	queryTail := querySplitter.FindString(childQuery)
 	queryHead := strings.TrimSuffix(childQuery, queryTail)
 
-
 	// We are mounting onto a single field...
 	if rootField != nil {
-		rootField.Type = rootType
 
+		operationType := q.Operations[0].Type
+		childType := childSchema.EntryPoints[operationType].(*schema.Object)
+
+		rootField.Type = childType
 		variablesUsed := map[string]*schema.InputValue{}
 		for _, selection := range selections {
 			for _, arg := range selection.Selection.Arguments {

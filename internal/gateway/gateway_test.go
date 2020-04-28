@@ -24,17 +24,20 @@ func TestGateway(t *testing.T) {
 				URL: helloServer.URL,
 			},
 		},
-		Schema: map[string][]gateway.Field{
-			"Query": {
-				{
-					Name:        "hi",
-					Description: "hi: provided by the hello service",
-					Endpoint:    "hello",
-					Query: `query($tok: String!, $firstName:String!) {
+		Types: []gateway.TypeConfig{
+			{
+				Name: `Query`,
+				Fields: []gateway.Field{
+					{
+						Name:        "hi",
+						Description: "hi: provided by the hello service",
+						Endpoint:    "hello",
+						Query: `query($tok: String!, $firstName:String!) {
 								login(token:$tok) {
 									hello(name:$firstName)
 								}
 							}`,
+					},
 				},
 			},
 		},

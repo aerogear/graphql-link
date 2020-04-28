@@ -38,38 +38,34 @@ listen: localhost:8080
 endpoints:
   anilist:
     url: https://graphql.anilist.co/
+    prefix: Ani
 
-schema:
-  # Configure fields we add the Query Type.
-  Query:
+types:
+  - name: Query
+    fields:
+      # imports all the fields into Query type.
+      - endpoint: anilist
+        query: query {}
 
-    # imports all the fields into Query type.
-    - endpoint: anilist
-      query: |
-        {}
+      # Adds only a test_field
+      - endpoint: anilist
+        query: query {}
+        name: ani_query
 
-    # Adds only a test_field
-    - endpoint: anilist
-      query: |
-        {}
-      name: test_field
-
-    # Adds a animeCharacters($page:Int, $perPage:Int, $search:String) field
-    - endpoint: anilist
-      query: |
-        query ($page:Int, $perPage:Int, $search:String) {
-          Page(page:$page, perPage:$perPage) {
-            characters(search:$search)
+      # Adds a animeCharacters($page:Int, $perPage:Int, $search:String) field
+      - endpoint: anilist
+        query: |
+          query ($page:Int, $perPage:Int, $search:String) {
+            Page(page:$page, perPage:$perPage) {
+              characters(search:$search)
+            }
           }
-        }
-      name: animeCharacters
+        name: animeCharacters
 
-  Mutation:
-    # imports all the fields into Query type.
-    - endpoint: anilist
-      query: |
-        mutation {}
-
+  - name: Mutation
+    fields:
+      - endpoint: anilist
+        query: mutation {}
 `), 0644)
 
 	if err != nil {
