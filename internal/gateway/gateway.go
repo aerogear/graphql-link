@@ -214,13 +214,9 @@ func mount(gateway *graphql.Engine, mountTypeName string, mountField schema.Fiel
 	}
 
 	// find the result type of the upstream query.
-	upstreamResultType := upstreamSchema.EntryPoints[upstreamOp.Type].(*schema.Object)
+	var upstreamResultType schema.Type = upstreamSchema.EntryPoints[upstreamOp.Type]
 	for _, s := range selections {
-		if t, ok := schema.DeepestType(s.Field.Type).(*schema.Object); ok {
-			upstreamResultType = t
-		} else {
-			return fmt.Errorf("type is not an object: %s", s.Field.Name)
-		}
+		upstreamResultType = schema.DeepestType(s.Field.Type)
 	}
 
 	queryTail := ""
@@ -233,8 +229,20 @@ func mount(gateway *graphql.Engine, mountTypeName string, mountField schema.Fiel
 	}
 
 	if mountField.Name == "" {
+
+		fields := schema.FieldList{}
+
 		// Get all the field names from it and mount them...
-		for _, f := range upstreamResultType.Fields {
+		switch upstreamResultType := upstreamResultType.(type) {
+		case *schema.Object:
+			fields = upstreamResultType.Fields
+		case *schema.Interface:
+			fields = upstreamResultType.Fields
+		default:
+			return errors.Errorf("Type '%s' does not have any fields to mount", upstreamResultType.String())
+		}
+
+		for _, f := range fields {
 			upstreamQuery = fmt.Sprintf("%s { %s } %s", queryHead, f.Name, queryTail)
 			err = mount(gateway, mountTypeName, *f, resolver, upstreamSchema, serveGraphQL, upstreamQuery)
 			if err != nil {
