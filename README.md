@@ -30,6 +30,12 @@ cd myproject
 graphql-gw serve
 ```
 
+## Build from source
+
+```bash
+go build -o=graphql-gw main.go
+```
+
 ### Usage
 
 `$ graphql-gw --help`
