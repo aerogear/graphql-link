@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os"
 
 	"github.com/chirino/graphql-gw/internal/cmd/root"
 	"github.com/chirino/graphql-gw/internal/gateway"
@@ -45,13 +46,16 @@ func run(cmd *cobra.Command, args []string) {
 	file, err := ioutil.ReadFile(ConfigFile)
 
 	if err != nil {
-		log.Fatalf(vebosityFmt, err)
+		log.Fatalf("Error reading config file: %s.", err)
+		panic(err)
 	}
 
+	file = []byte(os.ExpandEnv(string(file)))
 	config := Config{}
 	err = yaml.Unmarshal(file, &config)
 	if err != nil {
-		log.Fatalf(vebosityFmt, err)
+		log.Fatalf("Error parsing yaml file: %s.", err)
+		panic(err)
 	}
 
 	if config.Listen == "" {
