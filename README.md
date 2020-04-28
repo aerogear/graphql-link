@@ -122,7 +122,8 @@ types:
 ### Importing all the fields of an upstream graphql endpoint.
 
 If you want to import all the fields of an upstream endpoint object, simply don't specify 
-the name for the field to mount the query on to. 
+the name for the field to mount the query on to. The following example will import all the
+query fields onto the `Query` type and all the mutation fields on the `Mutation` type. 
 
 ```yaml
 types:
@@ -130,6 +131,10 @@ types:
     fields:
     - endpoint: anilist
       query: query {}
+  - name: Mutation
+    fields:
+    - endpoint: anilist
+      query: mutation {}
 ```
 
 ### Importing a nested field of upstream graphql endpoint.
