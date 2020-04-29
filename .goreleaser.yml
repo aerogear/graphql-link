@@ -3,23 +3,40 @@
 before:
   hooks:
 builds:
-- env:
-  - CGO_ENABLED=0
+  - env:
+      - CGO_ENABLED=0
+      - GO111MODULE=on
+    goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - 386
+      - amd64
+      - arm
+      - arm64
+    goarm:
+      - 6
+      - 7
 archives:
-- replacements:
-    darwin: Darwin
-    #linux: Linux
-    windows: Windows
-    ## 386: i386
-    ## amd64: x86_64
+  - replacements:
+      darwin: mac
+      386: 32bit-x86
+      amd64: 64bit-x86
+      arm: 32bit-arm
+      arm64: 64bit-arm
+
+    format_overrides:
+      - goos: windows
+        format: zip
 checksum:
-  name_template: 'checksums.txt'
+  name_template: "checksums.txt"
 snapshot:
   name_template: "{{ .Tag }}-next"
 changelog:
   sort: asc
   filters:
     exclude:
-    - '^docs:'
-    - '^test:'
-    - '^chore:'
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
