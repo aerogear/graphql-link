@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -87,6 +88,10 @@ type Mutation {}
 
 	for eid, info := range config.Endpoints {
 		c := relay.NewClient(info.URL)
+		c.HTTPClient = &http.Client{
+			Transport: proxyTransport(0),
+		}
+
 		endpoints[eid] = &endpoint{
 			info:   info,
 			client: c.ServeGraphQL,
