@@ -1,7 +1,6 @@
 package gateway
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -224,15 +223,6 @@ func mount(gateway *graphql.Engine, mountTypeName string, mountField schema.Fiel
 		upstreamResultType = schema.DeepestType(s.Field.Type)
 	}
 
-	queryTail := ""
-	queryHead := ""
-	if emptySelectionRegex.MatchString(upstreamQuery) {
-		queryHead = emptySelectionRegex.ReplaceAllString(upstreamQuery, "")
-	} else {
-		queryTail = querySplitter.FindString(upstreamQuery)
-		queryHead = strings.TrimSuffix(upstreamQuery, queryTail)
-	}
-
 	if mountField.Name == "" {
 
 		fields := schema.FieldList{}
@@ -245,6 +235,15 @@ func mount(gateway *graphql.Engine, mountTypeName string, mountField schema.Fiel
 			fields = upstreamResultType.Fields
 		default:
 			return errors.Errorf("Type '%s' does not have any fields to mount", upstreamResultType.String())
+		}
+
+		queryTail := ""
+		queryHead := ""
+		if emptySelectionRegex.MatchString(upstreamQuery) {
+			queryHead = emptySelectionRegex.ReplaceAllString(upstreamQuery, "")
+		} else {
+			queryTail = querySplitter.FindString(upstreamQuery)
+			queryHead = strings.TrimSuffix(upstreamQuery, queryTail)
 		}
 
 		for _, f := range fields {
@@ -269,29 +268,32 @@ func mount(gateway *graphql.Engine, mountTypeName string, mountField schema.Fiel
 
 	// query {} has no selections...
 	if len(selections) > 0 {
+
 		lastSelection := selections[len(selections)-1]
 		mountField.Type = lastSelection.Field.Type
 
-	outer:
 		for _, arg := range lastSelection.Field.Args {
-
 			if variablesUsed[arg.Name.Text] != nil {
 				continue
 			}
-			for _, sarg := range lastSelection.Selection.Arguments {
-				v := map[string]*schema.InputValue{}
-				collectVariablesUsed(v, upstreamQueryDoc.Operations[0], sarg.Value)
-				if len(v) != 0 {
-					continue outer
+			for _, arg := range lastSelection.Field.Args {
+				if lit, ok := lastSelection.Selection.Arguments.Get(arg.Name.Text); ok {
+					v := map[string]*schema.InputValue{}
+					collectVariablesUsed(v, upstreamQueryDoc.Operations[0], lit)
+					if len(v) != 0 {
+						continue
+					}
 				}
+				mountField.Args = append(mountField.Args, arg)
 			}
-
-			mountField.Args = append(mountField.Args, arg)
 		}
 	}
 
 	for _, value := range variablesUsed {
-		mountField.Args = append(mountField.Args, value)
+		mountField.Args = append(mountField.Args, &schema.InputValue{
+			Name: schema.Ident{Text: strings.TrimPrefix(value.Name.Text, "$")},
+			Type: value.Type,
+		})
 	}
 	sort.Slice(mountField.Args, func(i, j int) bool {
 		return mountField.Args[i].Name.Text < mountField.Args[j].Name.Text
@@ -325,14 +327,41 @@ func mount(gateway *graphql.Engine, mountTypeName string, mountField schema.Fiel
 	resolver.Set(mountTypeName, mountField.Name, func(request *resolvers.ResolveRequest, _ resolvers.Resolution) resolvers.Resolution {
 		return func() (reflect.Value, error) {
 
-			clientQuery := &bytes.Buffer{}
-			clientQuery.WriteString(queryHead)
+			// reparse to avoid modifying the original.
+			upstreamQueryDoc, _ := query.Parse(upstreamQuery)
+			upstreamOp := upstreamQueryDoc.Operations[0]
 
-			//request.Selection.Arguments.WriteTo(clientQuery)
-			request.Selection.Selections.WriteTo(clientQuery)
-			clientQuery.WriteString(queryTail)
+			// find the leaf selection the upstream query...
+			lastSelection := query.Selection(upstreamOp)
+			lastSelections := lastSelection.GetSelections(upstreamQueryDoc)
+			for len(lastSelections) > 0 {
+				lastSelection = lastSelections[0]
+				lastSelections = lastSelection.GetSelections(upstreamQueryDoc)
+			}
+			// lets figure out what variables we need to add to the query...
+			argsToAdd := map[string]schema.Type{}
+			for _, arg := range request.Field.Args {
+				argsToAdd[arg.Name.Text] = arg.Type
+			}
+			for _, arg := range upstreamOp.Vars {
+				delete(argsToAdd, strings.TrimPrefix(arg.Name.Text, "$"))
+			}
 
-			query := clientQuery.String()
+			for k, t := range argsToAdd {
+				upstreamOp.Vars = append(upstreamOp.Vars, &schema.InputValue{
+					Name: schema.Ident{Text: "$" + k},
+					Type: t,
+				})
+				lastSelectionField := lastSelection.(*query.Field)
+				lastSelectionField.Arguments = append(lastSelectionField.Arguments, schema.Argument{
+					Name:  schema.Ident{Text: k},
+					Value: &schema.Variable{Name: k},
+				})
+			}
+
+			lastSelection.SetSelections(upstreamQueryDoc, request.Selection.Selections)
+			query := upstreamQueryDoc.String()
+
 			result := serveGraphQL(&graphql.Request{
 				Context:   request.Context.GetContext(),
 				Query:     query,
@@ -381,7 +410,7 @@ func collectVariablesUsed(usedVariables map[string]*schema.InputValue, op *query
 			}
 		}
 	case *schema.Variable:
-		v := op.Vars.Get(l.Name)
+		v := op.Vars.Get(l.String())
 		if v == nil {
 			return qerrors.Errorf("variable name '%s' not found defined in operation arguments", l.Name).
 				WithLocations(l.Loc).
