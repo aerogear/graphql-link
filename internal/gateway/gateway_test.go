@@ -265,3 +265,60 @@ func TestMountNamedFieldWithArguments(t *testing.T) {
 	require.NoError(t, res.Error())
 	assert.Equal(t, `{"mysearch":{"name":{"full":"Rukia Kuchiki"}}}`, string(res.Data))
 }
+
+func TestFieldAliases(t *testing.T) {
+
+	charactersEngine := characters.New()
+	charactersServer := httptest.NewServer(&relay.Handler{ServeGraphQLStream: charactersEngine.ServeGraphQLStream})
+	defer charactersServer.Close()
+
+	engine, err := gateway.New(gateway.Config{
+		Endpoints: map[string]gateway.EndpointInfo{
+			"characters": {
+				URL:    charactersServer.URL,
+				Suffix: "_t1",
+			},
+		},
+		Types: []gateway.TypeConfig{
+			{
+				Name: `Query`,
+				Fields: []gateway.Field{
+					{
+						Name:     "characters",
+						Endpoint: "characters",
+						Query:    `query {}`,
+					},
+					{
+						Name:     "rukiaId",
+						Endpoint: "characters",
+						Query: `query {
+   									search(name: "Rukia") {
+										id
+									}
+								}`,
+					},
+				},
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	server := httptest.NewServer(&relay.Handler{Engine: engine})
+	defer server.Close()
+
+	client := relay.NewClient(server.URL)
+	res := client.ServeGraphQL(&graphql.EngineRequest{
+		Query: `
+query anilist {
+  y: rukiaId
+  z: characters {
+    y:search(name: "Rukia") {
+      x: id
+    }
+  }
+}`,
+	})
+
+	require.NoError(t, res.Error())
+	assert.Equal(t, `{"y":"1","z":{"y":{"x":"1"}}}`, string(res.Data))
+}

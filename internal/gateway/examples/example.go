@@ -17,9 +17,9 @@ func main() {
 	host := "localhost"
 	port := "8080"
 
-	chractersEngine := characters.New()
-	chractersServer := httptest.NewServer(&relay.Handler{ServeGraphQLStream: chractersEngine.ServeGraphQLStream})
-	defer chractersServer.Close()
+	charactersEngine := characters.New()
+	charactersServer := httptest.NewServer(&relay.Handler{ServeGraphQLStream: charactersEngine.ServeGraphQLStream})
+	defer charactersServer.Close()
 
 	showsEngine := shows.New()
 	showsServer := httptest.NewServer(&relay.Handler{ServeGraphQLStream: showsEngine.ServeGraphQLStream})
@@ -27,8 +27,8 @@ func main() {
 
 	engine, err := gateway.New(gateway.Config{
 		Endpoints: map[string]gateway.EndpointInfo{
-			"chracters": {
-				URL:    chractersServer.URL,
+			"characters": {
+				URL:    charactersServer.URL,
 				Suffix: "_t1",
 			},
 			"shows": {
@@ -41,14 +41,23 @@ func main() {
 				Name: `Query`,
 				Fields: []gateway.Field{
 					{
-						Name:     "chracters",
-						Endpoint: "chracters",
+						Name:     "characters",
+						Endpoint: "characters",
 						Query:    `query {}`,
 					},
 					{
 						Name:     "shows",
 						Endpoint: "shows",
 						Query:    `query {}`,
+					},
+					{
+						Name:     "rukiaId",
+						Endpoint: "characters",
+						Query: `query {
+   									search(name: "Rukia") {
+										id
+									}
+								}`,
 					},
 				},
 			},
