@@ -16,7 +16,6 @@ import (
 	"github.com/chirino/graphql"
 	"github.com/chirino/graphql/exec"
 	"github.com/chirino/graphql/qerrors"
-	"github.com/chirino/graphql/query"
 	"github.com/chirino/graphql/relay"
 	"github.com/chirino/graphql/resolvers"
 	"github.com/chirino/graphql/schema"
@@ -51,7 +50,7 @@ type Config struct {
 }
 
 type endpoint struct {
-	client func(request *graphql.EngineRequest) *graphql.EngineResponse
+	client func(request *graphql.Request) *graphql.Response
 	schema *schema.Schema
 	info   EndpointInfo
 }
@@ -122,7 +121,7 @@ type Mutation {}
 				if endpoint, ok := endpoints[fieldConfig.Endpoint]; ok {
 					field := schema.Field{Name: fieldConfig.Name}
 					if fieldConfig.Description != "" {
-						field.Desc = &schema.Description{Text: fieldConfig.Description}
+						field.Desc = schema.Description{Text: fieldConfig.Description}
 					}
 					err := mount(root, object.Name, field, fieldResolver, endpoint.schema, endpoint.client, fieldConfig.Query)
 					if err != nil {
@@ -203,7 +202,8 @@ var querySplitter = regexp.MustCompile(`[}\s]*$`)
 
 func mount(gateway *graphql.Engine, mountTypeName string, mountField schema.Field, resolver resolvers.TypeAndFieldResolver, upstreamSchema *schema.Schema, serveGraphQL graphql.ServeGraphQLFunc, upstreamQuery string) error {
 
-	upstreamQueryDoc, qerr := query.Parse(upstreamQuery)
+	upstreamQueryDoc := &schema.QueryDocument{}
+	qerr := upstreamQueryDoc.Parse(upstreamQuery)
 	if qerr != nil {
 		return qerr
 	}
@@ -260,7 +260,10 @@ func mount(gateway *graphql.Engine, mountTypeName string, mountField schema.Fiel
 	variablesUsed := map[string]*schema.InputValue{}
 	for _, selection := range selections {
 		for _, arg := range selection.Selection.Arguments {
-			collectVariablesUsed(variablesUsed, upstreamQueryDoc.Operations[0], arg.Value)
+			err := collectVariablesUsed(variablesUsed, upstreamQueryDoc.Operations[0], arg.Value)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -273,11 +276,11 @@ func mount(gateway *graphql.Engine, mountTypeName string, mountField schema.Fiel
 		mountField.Type = lastSelection.Field.Type
 
 		for _, arg := range lastSelection.Field.Args {
-			if variablesUsed[arg.Name.Text] != nil {
+			if variablesUsed[arg.Name] != nil {
 				continue
 			}
 			for _, arg := range lastSelection.Field.Args {
-				if lit, ok := lastSelection.Selection.Arguments.Get(arg.Name.Text); ok {
+				if lit, ok := lastSelection.Selection.Arguments.Get(arg.Name); ok {
 					v := map[string]*schema.InputValue{}
 					collectVariablesUsed(v, upstreamQueryDoc.Operations[0], lit)
 					if len(v) != 0 {
@@ -291,12 +294,12 @@ func mount(gateway *graphql.Engine, mountTypeName string, mountField schema.Fiel
 
 	for _, value := range variablesUsed {
 		mountField.Args = append(mountField.Args, &schema.InputValue{
-			Name: schema.Ident{Text: strings.TrimPrefix(value.Name.Text, "$")},
+			Name: strings.TrimPrefix(value.Name, "$"),
 			Type: value.Type,
 		})
 	}
 	sort.Slice(mountField.Args, func(i, j int) bool {
-		return mountField.Args[i].Name.Text < mountField.Args[j].Name.Text
+		return mountField.Args[i].Name < mountField.Args[j].Name
 	})
 
 	// make sure the types of the upstream schema get added to the root schema
@@ -321,18 +324,19 @@ func mount(gateway *graphql.Engine, mountTypeName string, mountField schema.Fiel
 
 	selectionAliases := []string{}
 	for _, s := range selections {
-		selectionAliases = append(selectionAliases, s.Selection.Alias.Text)
+		selectionAliases = append(selectionAliases, s.Selection.Alias)
 	}
 
 	resolver.Set(mountTypeName, mountField.Name, func(request *resolvers.ResolveRequest, _ resolvers.Resolution) resolvers.Resolution {
 		return func() (reflect.Value, error) {
 
 			// reparse to avoid modifying the original.
-			upstreamQueryDoc, _ := query.Parse(upstreamQuery)
+			upstreamQueryDoc := &schema.QueryDocument{}
+			upstreamQueryDoc.Parse(upstreamQuery)
 			upstreamOp := upstreamQueryDoc.Operations[0]
 
 			// find the leaf selection the upstream query...
-			lastSelection := query.Selection(upstreamOp)
+			lastSelection := schema.Selection(upstreamOp)
 			lastSelections := lastSelection.GetSelections(upstreamQueryDoc)
 			for len(lastSelections) > 0 {
 				lastSelection = lastSelections[0]
@@ -341,20 +345,20 @@ func mount(gateway *graphql.Engine, mountTypeName string, mountField schema.Fiel
 			// lets figure out what variables we need to add to the query...
 			argsToAdd := map[string]schema.Type{}
 			for _, arg := range request.Field.Args {
-				argsToAdd[arg.Name.Text] = arg.Type
+				argsToAdd[arg.Name] = arg.Type
 			}
 			for _, arg := range upstreamOp.Vars {
-				delete(argsToAdd, strings.TrimPrefix(arg.Name.Text, "$"))
+				delete(argsToAdd, strings.TrimPrefix(arg.Name, "$"))
 			}
 
 			for k, t := range argsToAdd {
 				upstreamOp.Vars = append(upstreamOp.Vars, &schema.InputValue{
-					Name: schema.Ident{Text: "$" + k},
+					Name: "$" + k,
 					Type: t,
 				})
-				lastSelectionField := lastSelection.(*query.Field)
+				lastSelectionField := lastSelection.(*schema.FieldSelection)
 				lastSelectionField.Arguments = append(lastSelectionField.Arguments, schema.Argument{
-					Name:  schema.Ident{Text: k},
+					Name:  k,
 					Value: &schema.Variable{Name: k},
 				})
 			}
@@ -393,7 +397,7 @@ func mount(gateway *graphql.Engine, mountTypeName string, mountField schema.Fiel
 	return nil
 }
 
-func collectVariablesUsed(usedVariables map[string]*schema.InputValue, op *query.Operation, l schema.Literal) *graphql.Error {
+func collectVariablesUsed(usedVariables map[string]*schema.InputValue, op *schema.Operation, l schema.Literal) *graphql.Error {
 	switch l := l.(type) {
 	case *schema.ObjectLit:
 		for _, f := range l.Fields {
@@ -421,7 +425,7 @@ func collectVariablesUsed(usedVariables map[string]*schema.InputValue, op *query
 	return nil
 }
 
-func getSelectedFields(upstreamSchema *schema.Schema, q *query.Document, op *query.Operation) ([]exec.FieldSelection, error) {
+func getSelectedFields(upstreamSchema *schema.Schema, q *schema.QueryDocument, op *schema.Operation) ([]exec.FieldSelection, error) {
 	onType := upstreamSchema.EntryPoints[op.Type]
 
 	fsc := exec.FieldSelectionContext{
@@ -449,7 +453,7 @@ func getSelectedFields(upstreamSchema *schema.Schema, q *query.Document, op *que
 		}
 		result = append(result, fields[0])
 
-		fsc.Path = append(fsc.Path, fields[0].Selection.Alias.Text)
+		fsc.Path = append(fsc.Path, fields[0].Selection.Alias)
 		fsc.OnType = fields[0].Field.Type
 		selections = fields[0].Selection.Selections
 	}
