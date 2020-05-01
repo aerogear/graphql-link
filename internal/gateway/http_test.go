@@ -44,19 +44,23 @@ func TestProxyHeaders(t *testing.T) {
 	defer charactersServer.Close()
 
 	gw, err := gateway.New(gateway.Config{
-		Endpoints: map[string]gateway.EndpointInfo{
+		Upstreams: map[string]gateway.UpstreamWrapper{
 			"characters": {
-				URL:    charactersServer.URL,
-				Suffix: "_t1",
+				Upstream: &gateway.GraphQLUpstream{
+					URL:    charactersServer.URL,
+					Suffix: "_t1",
+				},
 			},
 		},
 		Types: []gateway.TypeConfig{
 			{
 				Name: `Query`,
-				Fields: []gateway.Field{
+				Actions: []gateway.ActionWrapper{
 					{
-						Endpoint: "characters",
-						Query:    `query {}`,
+						Action: &gateway.Mount{
+							Upstream: "characters",
+							Query:    `query {}`,
+						},
 					},
 				},
 			},

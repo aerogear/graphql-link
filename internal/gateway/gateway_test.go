@@ -19,22 +19,26 @@ func TestMountNamedFieldWithVariableNames(t *testing.T) {
 	defer charactersServer.Close()
 
 	engine, err := gateway.New(gateway.Config{
-		Endpoints: map[string]gateway.EndpointInfo{
+		Upstreams: map[string]gateway.UpstreamWrapper{
 			"characters": {
-				URL:    charactersServer.URL,
-				Suffix: "_t1",
+				Upstream: &gateway.GraphQLUpstream{
+					URL:    charactersServer.URL,
+					Suffix: "_t1",
+				},
 			},
 		},
 		Types: []gateway.TypeConfig{
 			{
 				Name: `Query`,
-				Fields: []gateway.Field{
+				Actions: []gateway.ActionWrapper{
 					{
-						Name:     "mysearch",
-						Endpoint: "characters",
-						Query: `query($text: String!) {
-                           search(name:$text) 
-                        }`,
+						Action: &gateway.Mount{
+							Field:    "mysearch",
+							Upstream: "characters",
+							Query: `query($text: String!) {
+                           	   search(name:$text) 
+                        	}`,
+						},
 					},
 				},
 			},
@@ -84,20 +88,24 @@ func TestMountRootQueryOnNamedField(t *testing.T) {
 	defer charactersServer.Close()
 
 	gateway, err := gateway.New(gateway.Config{
-		Endpoints: map[string]gateway.EndpointInfo{
+		Upstreams: map[string]gateway.UpstreamWrapper{
 			"characters": {
-				URL:    charactersServer.URL,
-				Suffix: "_t1",
+				Upstream: &gateway.GraphQLUpstream{
+					URL:    charactersServer.URL,
+					Suffix: "_t1",
+				},
 			},
 		},
 		Types: []gateway.TypeConfig{
 			{
 				Name: `Query`,
-				Fields: []gateway.Field{
+				Actions: []gateway.ActionWrapper{
 					{
-						Name:     "charactersQuery",
-						Endpoint: "characters",
-						Query:    `query {}`,
+						Action: &gateway.Mount{
+							Field:    "charactersQuery",
+							Upstream: "characters",
+							Query:    `query {}`,
+						},
 					},
 				},
 			},
@@ -146,19 +154,23 @@ func TestMountAllFieldsOnRootQuery(t *testing.T) {
 	defer charactersServer.Close()
 
 	gateway, err := gateway.New(gateway.Config{
-		Endpoints: map[string]gateway.EndpointInfo{
+		Upstreams: map[string]gateway.UpstreamWrapper{
 			"characters": {
-				URL:    charactersServer.URL,
-				Suffix: "_t1",
+				Upstream: &gateway.GraphQLUpstream{
+					URL:    charactersServer.URL,
+					Suffix: "_t1",
+				},
 			},
 		},
 		Types: []gateway.TypeConfig{
 			{
 				Name: `Query`,
-				Fields: []gateway.Field{
+				Actions: []gateway.ActionWrapper{
 					{
-						Endpoint: "characters",
-						Query:    `query {}`,
+						Action: &gateway.Mount{
+							Upstream: "characters",
+							Query:    `query {}`,
+						},
 					},
 				},
 			},
@@ -228,22 +240,26 @@ func TestMountNamedFieldWithArguments(t *testing.T) {
 	defer charactersServer.Close()
 
 	engine, err := gateway.New(gateway.Config{
-		Endpoints: map[string]gateway.EndpointInfo{
+		Upstreams: map[string]gateway.UpstreamWrapper{
 			"characters": {
-				URL:    charactersServer.URL,
-				Suffix: "_t1",
+				Upstream: &gateway.GraphQLUpstream{
+					URL:    charactersServer.URL,
+					Suffix: "_t1",
+				},
 			},
 		},
 		Types: []gateway.TypeConfig{
 			{
 				Name: `Query`,
-				Fields: []gateway.Field{
+				Actions: []gateway.ActionWrapper{
 					{
-						Name:     "mysearch",
-						Endpoint: "characters",
-						Query: `query {
+						Action: &gateway.Mount{
+							Field:    "mysearch",
+							Upstream: "characters",
+							Query: `query {
                            search
                         }`,
+						},
 					},
 				},
 			},
@@ -273,29 +289,35 @@ func TestFieldAliases(t *testing.T) {
 	defer charactersServer.Close()
 
 	engine, err := gateway.New(gateway.Config{
-		Endpoints: map[string]gateway.EndpointInfo{
+		Upstreams: map[string]gateway.UpstreamWrapper{
 			"characters": {
-				URL:    charactersServer.URL,
-				Suffix: "_t1",
+				Upstream: &gateway.GraphQLUpstream{
+					URL:    charactersServer.URL,
+					Suffix: "_t1",
+				},
 			},
 		},
 		Types: []gateway.TypeConfig{
 			{
 				Name: `Query`,
-				Fields: []gateway.Field{
+				Actions: []gateway.ActionWrapper{
 					{
-						Name:     "characters",
-						Endpoint: "characters",
-						Query:    `query {}`,
+						Action: &gateway.Mount{
+							Field:    "characters",
+							Upstream: "characters",
+							Query:    `query {}`,
+						},
 					},
 					{
-						Name:     "rukiaId",
-						Endpoint: "characters",
-						Query: `query {
+						Action: &gateway.Mount{
+							Field:    "rukiaId",
+							Upstream: "characters",
+							Query: `query {
    									search(name: "Rukia") {
 										id
 									}
 								}`,
+						},
 					},
 				},
 			},

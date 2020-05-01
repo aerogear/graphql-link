@@ -34,38 +34,44 @@ func run(cmd *cobra.Command, args []string) {
 listen: localhost:8080
 
 #
-# Configure the GraphQL endpoints you will be composing here along with their schema.
-endpoints:
+# Configure the GraphQL upstream servers you will be accessing
+upstreams:
   anilist:
     url: https://graphql.anilist.co/
     prefix: Ani
 
 types:
   - name: Query
-    fields:
-      # imports all the fields into Query type.
-      - endpoint: anilist
+    actions:
+      # mounts all the fields of the root anilist query onto the Query type
+      - type: mount
+        upstream: anilist
         query: query {}
 
-      # Adds only a test_field
-      - endpoint: anilist
-        query: query {}
+      # mounts on a new ani_query field the root anilist query
+      - type: mount
         name: ani_query
+        upstream: anilist
+        query: query {}
 
       # Adds a animeCharacters($page:Int, $perPage:Int, $search:String) field
-      - endpoint: anilist
+      - type: mount
+        name: animeCharacters
+        upstream: anilist
         query: |
           query ($page:Int, $perPage:Int, $search:String) {
             Page(page:$page, perPage:$perPage) {
               characters(search:$search)
             }
           }
-        name: animeCharacters
 
   - name: Mutation
-    fields:
-      - endpoint: anilist
+    actions:
+      # mounts all the fields of the root anilist mutation onto the Mutation type
+      - type: mount
+        upstream: anilist
         query: mutation {}
+
 `), 0644)
 
 	if err != nil {

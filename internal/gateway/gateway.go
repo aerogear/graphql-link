@@ -1,13 +1,10 @@
 package gateway
 
 import (
-	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
-	"strings"
 
 	"github.com/chirino/graphql"
 	"github.com/chirino/graphql/exec"
@@ -18,37 +15,23 @@ import (
 	"github.com/pkg/errors"
 )
 
-type EndpointInfo struct {
-	URL    string `json:"url"`
-	Prefix string `json:"prefix"`
-	Suffix string `json:"suffix"`
-	Schema string `json:"types"`
-}
-
-type Field struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Endpoint    string `json:"endpoint"`
-	Query       string `json:"query"`
-}
-
 type TypeConfig struct {
-	Name   string  `json:"name"`
-	Fields []Field `json:"fields"`
+	Name    string          `json:"name"`
+	Actions []ActionWrapper `json:"actions"`
 }
 
 type Config struct {
-	ConfigDirectory        string                  `json:"-"`
-	DisableSchemaDownloads bool                    `json:"disable-schema-downloads"`
-	EnabledSchemaStorage   bool                    `json:"enable-schema-storage"`
-	Endpoints              map[string]EndpointInfo `json:"endpoints"`
-	Types                  []TypeConfig            `json:"types"`
+	ConfigDirectory        string                     `json:"-"`
+	DisableSchemaDownloads bool                       `json:"disable-schema-downloads"`
+	EnabledSchemaStorage   bool                       `json:"enable-schema-storage"`
+	Upstreams              map[string]UpstreamWrapper `json:"upstreams"`
+	Types                  []TypeConfig               `json:"types"`
 }
 
-type endpoint struct {
+type upstreamServer struct {
 	client func(request *graphql.Request) *graphql.Response
 	schema *schema.Schema
-	info   EndpointInfo
+	info   GraphQLUpstream
 }
 
 var validGraphQLIdentifierRegex = regexp.MustCompile(`^[A-Za-z_][A-Za-z_0-9]*$`)
@@ -59,7 +42,7 @@ func New(config Config) (*graphql.Engine, error) {
 		config.ConfigDirectory = "."
 	}
 	if config.EnabledSchemaStorage {
-		os.MkdirAll(filepath.Join(config.ConfigDirectory, "endpoints"), 0755)
+		os.MkdirAll(filepath.Join(config.ConfigDirectory, "upstreams"), 0755)
 	}
 
 	fieldResolver := resolvers.TypeAndFieldResolver{}
@@ -78,150 +61,68 @@ type Mutation {}
 	}
 	root.Resolver = resolvers.List(root.Resolver, upstreamDomResolverInstance, fieldResolver)
 
-	endpoints := map[string]*endpoint{}
+	upstreams := map[string]*upstreamServer{}
 
-	for eid, info := range config.Endpoints {
-		c := relay.NewClient(info.URL)
-		c.HTTPClient = &http.Client{
-			Transport: proxyTransport(0),
-		}
-
-		endpoints[eid] = &endpoint{
-			info:   info,
-			client: c.ServeGraphQL,
+	for eid, upstream := range config.Upstreams {
+		switch upstream := upstream.Upstream.(type) {
+		case *GraphQLUpstream:
+			c := relay.NewClient(upstream.URL)
+			c.HTTPClient = &http.Client{
+				Transport: proxyTransport(0),
+			}
+			upstreams[eid] = &upstreamServer{
+				info:   *upstream,
+				client: c.ServeGraphQL,
+			}
+		default:
+			panic("invalid upstream type")
 		}
 	}
 
-	for eid, endpoint := range endpoints {
-		s, err := loadEndpointSchema(config, eid, endpoint)
+	for eid, upstream := range upstreams {
+		s, err := loadEndpointSchema(config, eid, upstream)
 		if err != nil {
 			return nil, err
 		}
 
-		if endpoint.info.Prefix != "" {
-			s.RenameTypes(func(x string) string { return endpoint.info.Prefix + x })
+		if upstream.info.Prefix != "" {
+			s.RenameTypes(func(x string) string { return upstream.info.Prefix + x })
 		}
-		if endpoint.info.Suffix != "" {
-			s.RenameTypes(func(x string) string { return x + endpoint.info.Suffix })
+		if upstream.info.Suffix != "" {
+			s.RenameTypes(func(x string) string { return x + upstream.info.Suffix })
 		}
-		endpoints[eid].schema = s
+		upstreams[eid].schema = s
 	}
 
+	actionRunner := actionRunner{
+		Gateway:   root,
+		Endpoints: upstreams,
+		Resolver:  fieldResolver,
+	}
 	for _, typeConfig := range config.Types {
 		object := root.Schema.Types[typeConfig.Name]
 		if object == nil {
 			object = &schema.Object{Name: typeConfig.Name}
 		}
 		if object, ok := object.(*schema.Object); ok {
-			for _, fieldConfig := range typeConfig.Fields {
-				if endpoint, ok := endpoints[fieldConfig.Endpoint]; ok {
-					field := schema.Field{Name: fieldConfig.Name}
-					if fieldConfig.Description != "" {
-						field.Desc = schema.Description{Text: fieldConfig.Description}
-					}
-					err := mount(root, object.Name, field, fieldResolver, endpoint.schema, endpoint.client, fieldConfig.Query)
+			actionRunner.Type = object
+			for _, action := range typeConfig.Actions {
+				switch action := action.Action.(type) {
+				case *Mount:
+					err := actionRunner.mount(action)
 					if err != nil {
 						return nil, err
 					}
-				} else {
-					return nil, errors.New("invalid endpoint id: " + fieldConfig.Endpoint)
+				case *Rename:
+
 				}
+
 			}
 		} else {
 			return nil, errors.Errorf("can only configure fields on OBJECT types: %s is a %s", typeConfig.Name, object.Kind())
 		}
 	}
 	return root, nil
-}
-
-func loadEndpointSchema(config Config, eid string, endpoint *endpoint) (*schema.Schema, error) {
-
-	schemaText := endpoint.info.Schema
-	if strings.TrimSpace(schemaText) != "" {
-		log.Printf("using static schema for endpoint %s: %s", eid, endpoint.info.URL)
-		return Parse(schemaText)
-	}
-
-	endpointSchemaFile := filepath.Join(config.ConfigDirectory, "endpoints", eid+".graphql")
-	endpointSchemaFileExists := false
-	if stat, err := os.Stat(endpointSchemaFile); err == nil && !stat.IsDir() {
-		endpointSchemaFileExists = true
-	}
-
-	if !config.DisableSchemaDownloads {
-		log.Printf("downloading schema for endpoint %s: %s", eid, endpoint.info.URL)
-		s, err := graphql.GetSchema(endpoint.client)
-
-		if err != nil {
-			if endpointSchemaFileExists {
-				log.Printf("download failed (will load cached schema version): %v", err)
-			} else {
-				return nil, errors.Wrap(err, "download failed")
-			}
-		}
-
-		// We may need to store it if it succeeded.
-		if err == nil && config.EnabledSchemaStorage {
-			err := ioutil.WriteFile(endpointSchemaFile, []byte(s.String()), 0644)
-			if err != nil {
-				return nil, errors.Wrap(err, "could not update schema")
-			}
-		}
-
-		return s, nil
-	}
-
-	if endpointSchemaFileExists {
-		log.Printf("loading previously stored schema: %s", endpointSchemaFile)
-		// This could be a transient failure... see if we have previously save it's schema.
-		data, err := ioutil.ReadFile(endpointSchemaFile)
-		if err != nil {
-			return nil, err
-		}
-		return Parse(string(data))
-	}
-
-	return nil, errors.Errorf("no schema defined for endpoint %s: %s", eid, endpoint.info.URL)
-}
-
-func Parse(schemaText string) (*schema.Schema, error) {
-	s := schema.New()
-	err := s.Parse(schemaText)
-	if err != nil {
-		return nil, err
-	}
-	return s, nil
-}
-
-var emptySelectionRegex = regexp.MustCompile(`{\s*}\s*$`)
-var querySplitter = regexp.MustCompile(`[}\s]*$`)
-
-func collectVariablesUsed(usedVariables map[string]*schema.InputValue, op *schema.Operation, l schema.Literal) *graphql.Error {
-	switch l := l.(type) {
-	case *schema.ObjectLit:
-		for _, f := range l.Fields {
-			err := collectVariablesUsed(usedVariables, op, f.Value)
-			if err != nil {
-				return err
-			}
-		}
-	case *schema.ListLit:
-		for _, entry := range l.Entries {
-			err := collectVariablesUsed(usedVariables, op, entry)
-			if err != nil {
-				return err
-			}
-		}
-	case *schema.Variable:
-		v := op.Vars.Get(l.String())
-		if v == nil {
-			return qerrors.Errorf("variable name '%s' not found defined in operation arguments", l.Name).
-				WithLocations(l.Loc).
-				WithStack()
-		}
-		usedVariables[l.Name] = v
-	}
-	return nil
 }
 
 func getSelectedFields(upstreamSchema *schema.Schema, q *schema.QueryDocument, op *schema.Operation) ([]exec.FieldSelection, error) {

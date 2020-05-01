@@ -26,38 +26,48 @@ func main() {
 	defer showsServer.Close()
 
 	engine, err := gateway.New(gateway.Config{
-		Endpoints: map[string]gateway.EndpointInfo{
+		Upstreams: map[string]gateway.UpstreamWrapper{
 			"characters": {
-				URL:    charactersServer.URL,
-				Suffix: "_t1",
+				Upstream: &gateway.GraphQLUpstream{
+					URL:    charactersServer.URL,
+					Suffix: "_t1",
+				},
 			},
 			"shows": {
-				URL:    showsServer.URL,
-				Suffix: "_t2",
+				Upstream: &gateway.GraphQLUpstream{
+					URL:    showsServer.URL,
+					Suffix: "_t2",
+				},
 			},
 		},
 		Types: []gateway.TypeConfig{
 			{
 				Name: `Query`,
-				Fields: []gateway.Field{
+				Actions: []gateway.ActionWrapper{
 					{
-						Name:     "characters",
-						Endpoint: "characters",
-						Query:    `query {}`,
+						Action: &gateway.Mount{
+							Field:    "characters",
+							Upstream: "characters",
+							Query:    `query {}`,
+						},
 					},
 					{
-						Name:     "shows",
-						Endpoint: "shows",
-						Query:    `query {}`,
+						Action: &gateway.Mount{
+							Field:    "shows",
+							Upstream: "shows",
+							Query:    `query {}`,
+						},
 					},
 					{
-						Name:     "rukiaId",
-						Endpoint: "characters",
-						Query: `query {
+						Action: &gateway.Mount{
+							Field:    "rukiaId",
+							Upstream: "characters",
+							Query: `query {
    									search(name: "Rukia") {
 										id
 									}
 								}`,
+						},
 					},
 				},
 			},

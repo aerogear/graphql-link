@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"reflect"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -16,7 +17,34 @@ import (
 	"github.com/pkg/errors"
 )
 
-func mount(gateway *graphql.Engine, mountTypeName string, mountField schema.Field, resolver resolvers.TypeAndFieldResolver, upstreamSchema *schema.Schema, serveGraphQL graphql.ServeGraphQLFunc, upstreamQuery string) error {
+type Mount struct {
+	Action
+	Field       string `json:"field"`
+	Description string `json:"description"`
+	Upstream    string `json:"upstream"`
+	Query       string `json:"query"`
+}
+
+func (c actionRunner) mount(action *Mount) error {
+	endpoint, ok := c.Endpoints[action.Upstream]
+	if !ok {
+		return errors.New("invalid endpoint id: " + action.Upstream)
+	}
+	field := schema.Field{Name: action.Field}
+	if action.Description != "" {
+		field.Desc = schema.Description{Text: action.Description}
+	}
+	err := mount(c, field, endpoint, action.Query)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+var emptySelectionRegex = regexp.MustCompile(`{\s*}\s*$`)
+var querySplitter = regexp.MustCompile(`[}\s]*$`)
+
+func mount(c actionRunner, field schema.Field, upstream *upstreamServer, upstreamQuery string) error {
 
 	upstreamQueryDoc := &schema.QueryDocument{}
 	qerr := upstreamQueryDoc.Parse(upstreamQuery)
@@ -28,18 +56,18 @@ func mount(gateway *graphql.Engine, mountTypeName string, mountField schema.Fiel
 	}
 	upstreamOp := upstreamQueryDoc.Operations[0]
 
-	selections, err := getSelectedFields(upstreamSchema, upstreamQueryDoc, upstreamOp)
+	selections, err := getSelectedFields(upstream.schema, upstreamQueryDoc, upstreamOp)
 	if err != nil {
 		return err
 	}
 
 	// find the result type of the upstream query.
-	var upstreamResultType schema.Type = upstreamSchema.EntryPoints[upstreamOp.Type]
+	var upstreamResultType schema.Type = upstream.schema.EntryPoints[upstreamOp.Type]
 	for _, s := range selections {
 		upstreamResultType = schema.DeepestType(s.Field.Type)
 	}
 
-	if mountField.Name == "" {
+	if field.Name == "" {
 
 		fields := schema.FieldList{}
 
@@ -64,14 +92,14 @@ func mount(gateway *graphql.Engine, mountTypeName string, mountField schema.Fiel
 
 		for _, f := range fields {
 			upstreamQuery = fmt.Sprintf("%s { %s } %s", queryHead, f.Name, queryTail)
-			err = mount(gateway, mountTypeName, *f, resolver, upstreamSchema, serveGraphQL, upstreamQuery)
+			err = mount(c, *f, upstream, upstreamQuery)
 			if err != nil {
 				return err
 			}
 		}
 		return nil
 	}
-	mountField.Type = upstreamResultType
+	field.Type = upstreamResultType
 
 	variablesUsed := map[string]*schema.InputValue{}
 	for _, selection := range selections {
@@ -83,13 +111,13 @@ func mount(gateway *graphql.Engine, mountTypeName string, mountField schema.Fiel
 		}
 	}
 
-	mountField.Args = []*schema.InputValue{}
+	field.Args = []*schema.InputValue{}
 
 	// query {} has no selections...
 	if len(selections) > 0 {
 
 		lastSelection := selections[len(selections)-1]
-		mountField.Type = lastSelection.Field.Type
+		field.Type = lastSelection.Field.Type
 
 		for _, arg := range lastSelection.Field.Args {
 			if variablesUsed[arg.Name] != nil {
@@ -103,47 +131,47 @@ func mount(gateway *graphql.Engine, mountTypeName string, mountField schema.Fiel
 						continue
 					}
 				}
-				mountField.Args = append(mountField.Args, arg)
+				field.Args = append(field.Args, arg)
 			}
 		}
 	}
 
 	for _, value := range variablesUsed {
-		mountField.Args = append(mountField.Args, &schema.InputValue{
+		field.Args = append(field.Args, &schema.InputValue{
 			Name: strings.TrimPrefix(value.Name, "$"),
 			Type: value.Type,
 		})
 	}
-	sort.Slice(mountField.Args, func(i, j int) bool {
-		return mountField.Args[i].Name < mountField.Args[j].Name
+	sort.Slice(field.Args, func(i, j int) bool {
+		return field.Args[i].Name < field.Args[j].Name
 	})
 
 	// make sure the types of the upstream schema get added to the root schema
-	mountField.AddIfMissing(gateway.Schema, upstreamSchema)
-	for _, v := range mountField.Args {
-		t, err := schema.ResolveType(v.Type, gateway.Schema.Resolve)
+	field.AddIfMissing(c.Gateway.Schema, upstream.schema)
+	for _, v := range field.Args {
+		t, err := schema.ResolveType(v.Type, c.Gateway.Schema.Resolve)
 		if err != nil {
 			return err
 		}
 		v.Type = t
 	}
 
-	mountType := gateway.Schema.Types[mountTypeName].(*schema.Object)
-	field := mountType.Fields.Get(mountField.Name)
-	if field == nil {
+	mountType := c.Gateway.Schema.Types[c.Type.Name].(*schema.Object)
+	existingField := mountType.Fields.Get(field.Name)
+	if existingField == nil {
 		// create a field object if it does not exist...
-		field = &schema.Field{}
-		mountType.Fields = append(mountType.Fields, field)
+		existingField = &schema.Field{}
+		mountType.Fields = append(mountType.Fields, existingField)
 	}
 	// overwrite the field with the provided config
-	*field = mountField
+	*existingField = field
 
 	selectionAliases := []string{}
 	for _, s := range selections {
 		selectionAliases = append(selectionAliases, s.Selection.Alias)
 	}
 
-	resolver.Set(mountTypeName, mountField.Name, func(request *resolvers.ResolveRequest, _ resolvers.Resolution) resolvers.Resolution {
+	c.Resolver.Set(c.Type.Name, field.Name, func(request *resolvers.ResolveRequest, _ resolvers.Resolution) resolvers.Resolution {
 		return func() (reflect.Value, error) {
 
 			// reparse to avoid modifying the original.
@@ -182,7 +210,7 @@ func mount(gateway *graphql.Engine, mountTypeName string, mountField schema.Fiel
 			lastSelection.SetSelections(upstreamQueryDoc, request.Selection.Selections)
 			query := upstreamQueryDoc.String()
 
-			result := serveGraphQL(&graphql.Request{
+			result := upstream.client(&graphql.Request{
 				Context:   request.ExecutionContext.GetContext(),
 				Query:     query,
 				Variables: request.Args,

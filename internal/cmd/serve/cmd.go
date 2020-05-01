@@ -49,12 +49,21 @@ func run(cmd *cobra.Command, args []string) {
 		panic(err)
 	}
 
-	file = []byte(os.ExpandEnv(string(file)))
 	config := Config{}
 	err = yaml.Unmarshal(file, &config)
 	if err != nil {
 		log.Fatalf("Error parsing yaml file: %s.", err)
 		panic(err)
+	}
+
+	// Let's only apply the env expansion to the URLs for now.
+	// We don't want to run it on queries which can have $var expressions
+	// in them.
+	for _, ep := range config.Upstreams {
+		switch upstream := ep.Upstream.(type) {
+		case *gateway.GraphQLUpstream:
+			upstream.URL = os.ExpandEnv(upstream.URL)
+		}
 	}
 
 	if config.Listen == "" {
