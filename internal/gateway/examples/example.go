@@ -11,6 +11,7 @@ import (
 	"github.com/chirino/graphql"
 	"github.com/chirino/graphql-gw/internal/gateway/examples/characters"
 	"github.com/chirino/graphql-gw/internal/gateway/examples/shows"
+	"github.com/chirino/graphql-gw/internal/gateway/examples/starwars_characters"
 	"github.com/chirino/graphql/graphiql"
 	"github.com/chirino/graphql/relay"
 )
@@ -23,6 +24,10 @@ func main() {
 	showsEngine := shows.New()
 	showsServer := StartupServer("0.0.0.0", 8082, showsEngine)
 	defer showsServer.Close()
+
+	starwars_charactersEngine := starwars_characters.New()
+	starwars_charactersServer := StartupServer("0.0.0.0", 8083, starwars_charactersEngine)
+	defer starwars_charactersServer.Close()
 
 	for {
 		time.Sleep(time.Hour)
