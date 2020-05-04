@@ -48,6 +48,7 @@ func TestMountNamedFieldWithVariableNames(t *testing.T) {
 
 	assert.Equal(t, `type Character_t1 {
   id:ID!
+  likes:Int!
   name:Name_t1
 }
 type Mutation {
@@ -180,6 +181,7 @@ func TestMountAllFieldsOnRootQuery(t *testing.T) {
 
 	assert.Equal(t, `type Character_t1 {
   id:ID!
+  likes:Int!
   name:Name_t1
 }
 type Mutation {

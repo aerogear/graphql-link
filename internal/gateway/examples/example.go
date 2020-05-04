@@ -52,14 +52,14 @@ func StartupServer(host string, port uint16, engine *graphql.Engine) *httptest.S
 
 	mux := http.NewServeMux()
 	mux.Handle("/graphql", &httpgql.Handler{ServeGraphQLStream: engine.ServeGraphQLStream})
-	endpoint := fmt.Sprintf("http://%s:%d", host, port)
-	mux.Handle("/", graphiql.New(endpoint+"/graphql", false))
+	endpoint := fmt.Sprintf("http://%s:%d/graphql", host, port)
+	mux.Handle("/", graphiql.New(endpoint, true))
 	ts := &httptest.Server{
 		Listener: l,
 		Config:   &http.Server{Handler: mux},
 	}
-	log.Printf("GraphQL endpoint running at %s/graphql", endpoint)
-	log.Printf("GraphQL UI running at %s", endpoint)
+	log.Printf("GraphQL endpoint running at %s", endpoint)
+	log.Printf("GraphQL UI running at http://%s:%d", host, port)
 	ts.Start()
 	return ts
 }
