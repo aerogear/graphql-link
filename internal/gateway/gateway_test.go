@@ -8,14 +8,14 @@ import (
 	"github.com/chirino/graphql"
 	"github.com/chirino/graphql-gw/internal/gateway"
 	"github.com/chirino/graphql-gw/internal/gateway/examples/characters"
-	"github.com/chirino/graphql/relay"
+	"github.com/chirino/graphql/httpgql"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestMountNamedFieldWithVariableNames(t *testing.T) {
 	charactersEngine := characters.New()
-	charactersServer := httptest.NewServer(&relay.Handler{ServeGraphQLStream: charactersEngine.ServeGraphQLStream})
+	charactersServer := httptest.NewServer(&httpgql.Handler{ServeGraphQLStream: charactersEngine.ServeGraphQLStream})
 	defer charactersServer.Close()
 
 	engine, err := gateway.New(gateway.Config{
@@ -66,10 +66,10 @@ schema {
 }
 `, engine.Schema.String())
 
-	server := httptest.NewServer(&relay.Handler{Engine: engine})
+	server := httptest.NewServer(&httpgql.Handler{Engine: engine})
 	defer server.Close()
 
-	client := relay.NewClient(server.URL)
+	client := httpgql.NewClient(server.URL)
 	res := client.ServeGraphQL(&graphql.EngineRequest{
 		Query: `
 {
@@ -84,7 +84,7 @@ schema {
 func TestMountRootQueryOnNamedField(t *testing.T) {
 
 	charactersEngine := characters.New()
-	charactersServer := httptest.NewServer(&relay.Handler{ServeGraphQLStream: charactersEngine.ServeGraphQLStream})
+	charactersServer := httptest.NewServer(&httpgql.Handler{ServeGraphQLStream: charactersEngine.ServeGraphQLStream})
 	defer charactersServer.Close()
 
 	gateway, err := gateway.New(gateway.Config{
@@ -150,7 +150,7 @@ query  {
 func TestMountAllFieldsOnRootQuery(t *testing.T) {
 
 	charactersEngine := characters.New()
-	charactersServer := httptest.NewServer(&relay.Handler{ServeGraphQLStream: charactersEngine.ServeGraphQLStream})
+	charactersServer := httptest.NewServer(&httpgql.Handler{ServeGraphQLStream: charactersEngine.ServeGraphQLStream})
 	defer charactersServer.Close()
 
 	gateway, err := gateway.New(gateway.Config{
@@ -236,7 +236,7 @@ query  {
 func TestMountNamedFieldWithArguments(t *testing.T) {
 
 	charactersEngine := characters.New()
-	charactersServer := httptest.NewServer(&relay.Handler{ServeGraphQLStream: charactersEngine.ServeGraphQLStream})
+	charactersServer := httptest.NewServer(&httpgql.Handler{ServeGraphQLStream: charactersEngine.ServeGraphQLStream})
 	defer charactersServer.Close()
 
 	engine, err := gateway.New(gateway.Config{
@@ -267,10 +267,10 @@ func TestMountNamedFieldWithArguments(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	server := httptest.NewServer(&relay.Handler{Engine: engine})
+	server := httptest.NewServer(&httpgql.Handler{Engine: engine})
 	defer server.Close()
 
-	client := relay.NewClient(server.URL)
+	client := httpgql.NewClient(server.URL)
 	res := client.ServeGraphQL(&graphql.EngineRequest{
 		Query: `
 {
@@ -285,7 +285,7 @@ func TestMountNamedFieldWithArguments(t *testing.T) {
 func TestFieldAliases(t *testing.T) {
 
 	charactersEngine := characters.New()
-	charactersServer := httptest.NewServer(&relay.Handler{ServeGraphQLStream: charactersEngine.ServeGraphQLStream})
+	charactersServer := httptest.NewServer(&httpgql.Handler{ServeGraphQLStream: charactersEngine.ServeGraphQLStream})
 	defer charactersServer.Close()
 
 	engine, err := gateway.New(gateway.Config{
@@ -325,10 +325,10 @@ func TestFieldAliases(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	server := httptest.NewServer(&relay.Handler{Engine: engine})
+	server := httptest.NewServer(&httpgql.Handler{Engine: engine})
 	defer server.Close()
 
-	client := relay.NewClient(server.URL)
+	client := httpgql.NewClient(server.URL)
 	res := client.ServeGraphQL(&graphql.EngineRequest{
 		Query: `
 query anilist {

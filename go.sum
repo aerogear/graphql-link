@@ -9,6 +9,9 @@ github.com/beorn7/perks v1.0.0/go.mod h1:KWe93zE9D1o94FZ5RNwFwVgaQK1VOXiVxmqh+Ce
 github.com/cespare/xxhash v1.1.0/go.mod h1:XrSqR1VqqWfGrhpAt58auRo0WTKS1nRRg3ghfAqPWnc=
 github.com/chirino/graphql v0.0.0-20200501084006-ebd700172ea5 h1:2UWUecmjQySumlSeCADWi1rDh2K62UVw/4klnWEYFz4=
 github.com/chirino/graphql v0.0.0-20200501084006-ebd700172ea5/go.mod h1:wQjjxFMFyMlsWh4Z3nMuHQtevD4Ul9UVQSnz1JOLuP8=
+github.com/chirino/graphql v0.0.0-20200501165557-f441860844ce/go.mod h1:wQjjxFMFyMlsWh4Z3nMuHQtevD4Ul9UVQSnz1JOLuP8=
+github.com/chirino/graphql v0.0.0-20200504231024-e55565be1a07 h1:AbgZnle7czLVj5mBStw80aEWn7VouFh+0BVKNUdl/Xg=
+github.com/chirino/graphql v0.0.0-20200504231024-e55565be1a07/go.mod h1:wQjjxFMFyMlsWh4Z3nMuHQtevD4Ul9UVQSnz1JOLuP8=
 github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=
 github.com/codahale/hdrhistogram v0.0.0-20161010025455-3a0bb77429bd h1:qMd81Ts1T2OTKmB4acZcyKaMtRnY5Y44NuXGX2GFJ1w=
 github.com/codahale/hdrhistogram v0.0.0-20161010025455-3a0bb77429bd/go.mod h1:sE/e/2PUdi/liOCUjSTXgM1o87ZssimdTWN964YiIeI=

@@ -6,11 +6,11 @@ import (
 	"strings"
 
 	"github.com/chirino/graphql"
-	"github.com/chirino/graphql/relay"
+	"github.com/chirino/graphql/httpgql"
 )
 
 func CreateHttpHandler(f graphql.ServeGraphQLStreamFunc) http.Handler {
-	return &relay.Handler{ServeGraphQLStream: f}
+	return &httpgql.Handler{ServeGraphQLStream: f}
 }
 
 type proxyTransport byte

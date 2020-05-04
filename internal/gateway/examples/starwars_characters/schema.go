@@ -103,4 +103,3 @@ var Schema = `
 	}
 	union SearchResult = Human | Droid
 `
-

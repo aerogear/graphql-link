@@ -10,14 +10,14 @@ import (
 	"github.com/chirino/graphql"
 	"github.com/chirino/graphql-gw/internal/gateway"
 	"github.com/chirino/graphql-gw/internal/gateway/examples/characters"
-	"github.com/chirino/graphql/relay"
+	"github.com/chirino/graphql/httpgql"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 type testHandler struct {
 	lastRequest *http.Request
-	*relay.Handler
+	*httpgql.Handler
 	mu sync.Mutex
 }
 
@@ -39,7 +39,7 @@ func TestProxyHeaders(t *testing.T) {
 
 	charactersEngine := characters.New()
 
-	h := &testHandler{Handler: &relay.Handler{ServeGraphQLStream: charactersEngine.ServeGraphQLStream}}
+	h := &testHandler{Handler: &httpgql.Handler{ServeGraphQLStream: charactersEngine.ServeGraphQLStream}}
 	charactersServer := httptest.NewServer(h)
 	defer charactersServer.Close()
 
@@ -70,7 +70,7 @@ func TestProxyHeaders(t *testing.T) {
 	gatewayServer := httptest.NewServer(gateway.CreateHttpHandler(gw.ServeGraphQLStream))
 	defer gatewayServer.Close()
 
-	client := relay.NewClient(gatewayServer.URL)
+	client := httpgql.NewClient(gatewayServer.URL)
 
 	actual := map[string]interface{}{}
 	graphql.Exec(client.ServeGraphQL, context.Background(), &actual, `

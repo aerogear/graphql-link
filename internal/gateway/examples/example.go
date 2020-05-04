@@ -13,7 +13,7 @@ import (
 	"github.com/chirino/graphql-gw/internal/gateway/examples/shows"
 	"github.com/chirino/graphql-gw/internal/gateway/examples/starwars_characters"
 	"github.com/chirino/graphql/graphiql"
-	"github.com/chirino/graphql/relay"
+	"github.com/chirino/graphql/httpgql"
 )
 
 func main() {
@@ -51,7 +51,7 @@ func StartupServer(host string, port uint16, engine *graphql.Engine) *httptest.S
 	}
 
 	mux := http.NewServeMux()
-	mux.Handle("/graphql", &relay.Handler{ServeGraphQLStream: engine.ServeGraphQLStream})
+	mux.Handle("/graphql", &httpgql.Handler{ServeGraphQLStream: engine.ServeGraphQLStream})
 	endpoint := fmt.Sprintf("http://%s:%d", host, port)
 	mux.Handle("/", graphiql.New(endpoint+"/graphql", false))
 	ts := &httptest.Server{

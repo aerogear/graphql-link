@@ -8,8 +8,8 @@ import (
 
 	"github.com/chirino/graphql"
 	"github.com/chirino/graphql/exec"
+	"github.com/chirino/graphql/httpgql"
 	"github.com/chirino/graphql/qerrors"
-	"github.com/chirino/graphql/relay"
 	"github.com/chirino/graphql/resolvers"
 	"github.com/chirino/graphql/schema"
 	"github.com/pkg/errors"
@@ -66,7 +66,7 @@ type Mutation {}
 	for eid, upstream := range config.Upstreams {
 		switch upstream := upstream.Upstream.(type) {
 		case *GraphQLUpstream:
-			c := relay.NewClient(upstream.URL)
+			c := httpgql.NewClient(upstream.URL)
 			c.HTTPClient = &http.Client{
 				Transport: proxyTransport(0),
 			}
