@@ -61,17 +61,20 @@ type Name_t1 {
 type Query {
   mysearch(text:String!):Character_t1
 }
+type Subscription {
+}
 schema {
   mutation: Mutation
   query: Query
+  subscription: Subscription
 }
 `, engine.Schema.String())
 
-	server := httptest.NewServer(&httpgql.Handler{Engine: engine})
+	server := httptest.NewServer(&httpgql.Handler{ServeGraphQLStream: engine.ServeGraphQLStream})
 	defer server.Close()
 
 	client := httpgql.NewClient(server.URL)
-	res := client.ServeGraphQL(&graphql.EngineRequest{
+	res := client.ServeGraphQL(&graphql.Request{
 		Query: `
 {
 	mysearch(text:"Rukia") { name { full }}
@@ -195,9 +198,12 @@ type Query {
   characters:[Character_t1!]!
   search(name:String!):Character_t1
 }
+type Subscription {
+}
 schema {
   mutation: Mutation
   query: Query
+  subscription: Subscription
 }
 `, gateway.Schema.String())
 
@@ -269,11 +275,11 @@ func TestMountNamedFieldWithArguments(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	server := httptest.NewServer(&httpgql.Handler{Engine: engine})
+	server := httptest.NewServer(&httpgql.Handler{ServeGraphQLStream: engine.ServeGraphQLStream})
 	defer server.Close()
 
 	client := httpgql.NewClient(server.URL)
-	res := client.ServeGraphQL(&graphql.EngineRequest{
+	res := client.ServeGraphQL(&graphql.Request{
 		Query: `
 {
 	mysearch(name:"Rukia") { name { full }}
@@ -327,11 +333,11 @@ func TestFieldAliases(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	server := httptest.NewServer(&httpgql.Handler{Engine: engine})
+	server := httptest.NewServer(&httpgql.Handler{ServeGraphQLStream: engine.ServeGraphQLStream})
 	defer server.Close()
 
 	client := httpgql.NewClient(server.URL)
-	res := client.ServeGraphQL(&graphql.EngineRequest{
+	res := client.ServeGraphQL(&graphql.Request{
 		Query: `
 query anilist {
   y: rukiaId
@@ -345,4 +351,64 @@ query anilist {
 
 	require.NoError(t, res.Error())
 	assert.Equal(t, `{"y":"1","z":{"y":{"x":"1"}}}`, string(res.Data))
+}
+
+func TestSubscription(t *testing.T) {
+
+	charactersEngine := characters.New()
+	charactersServer := httptest.NewServer(&httpgql.Handler{ServeGraphQLStream: charactersEngine.ServeGraphQLStream})
+	defer charactersServer.Close()
+
+	engine, err := gateway.New(gateway.Config{
+		Upstreams: map[string]gateway.UpstreamWrapper{
+			"characters": {
+				Upstream: &gateway.GraphQLUpstream{
+					URL:    charactersServer.URL,
+					Suffix: "_t1",
+				},
+			},
+		},
+		Types: []gateway.TypeConfig{
+			{
+				Name: `Subscription`,
+				Actions: []gateway.ActionWrapper{
+					{
+						Action: &gateway.Mount{
+							Upstream: "characters",
+							Query:    `subscription {}`,
+						},
+					},
+				},
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	server := httptest.NewServer(&httpgql.Handler{ServeGraphQLStream: engine.ServeGraphQLStream})
+	defer server.Close()
+
+	client := httpgql.NewClient(server.URL)
+	ctx, cancel := context.WithCancel(context.Background())
+	resStream := client.ServeGraphQLStream(&graphql.Request{
+		Context: ctx,
+		Query: `
+subscription {
+	character(id:"1") { id, name { full }, likes }
+}`,
+	})
+
+	res := <-resStream
+	require.NoError(t, res.Error())
+	assert.Equal(t, `{"character":{"id":"1","name":{"full":"Rukia Kuchiki"},"likes":1}}`, string(res.Data))
+
+	res = <-resStream
+	require.NoError(t, res.Error())
+	assert.Equal(t, `{"character":{"id":"1","name":{"full":"Rukia Kuchiki"},"likes":2}}`, string(res.Data))
+
+	res = <-resStream
+	require.NoError(t, res.Error())
+	assert.Equal(t, `{"character":{"id":"1","name":{"full":"Rukia Kuchiki"},"likes":3}}`, string(res.Data))
+
+	cancel()
+
 }

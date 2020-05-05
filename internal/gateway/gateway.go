@@ -29,9 +29,10 @@ type Config struct {
 }
 
 type upstreamServer struct {
-	client func(request *graphql.Request) *graphql.Response
-	schema *schema.Schema
-	info   GraphQLUpstream
+	client             func(request *graphql.Request) *graphql.Response
+	subscriptionClient func(request *graphql.Request) graphql.ResponseStream
+	schema             *schema.Schema
+	info               GraphQLUpstream
 }
 
 var validGraphQLIdentifierRegex = regexp.MustCompile(`^[A-Za-z_][A-Za-z_0-9]*$`)
@@ -51,9 +52,11 @@ func New(config Config) (*graphql.Engine, error) {
 schema {
     query: Query
     mutation: Mutation
+    subscription: Subscription
 }
 type Query {}
 type Mutation {}
+type Subscription {}
 `)
 
 	if err != nil {
@@ -71,8 +74,9 @@ type Mutation {}
 				Transport: proxyTransport(0),
 			}
 			upstreams[eid] = &upstreamServer{
-				info:   *upstream,
-				client: c.ServeGraphQL,
+				info:               *upstream,
+				client:             c.ServeGraphQL,
+				subscriptionClient: c.ServeGraphQLStream,
 			}
 		default:
 			panic("invalid upstream type")
