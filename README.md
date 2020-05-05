@@ -142,8 +142,8 @@ order.  You can select from the following actions types:
 
 | type |Description | 
 |---|---|
-| `mount:` | mounts an upstream field onto a gateway schema type using a graphql query
-| `rename:` |  enames either a type or field in the gateway schema.
+| [`mount`](#action-type-mount) | mounts an upstream field onto a gateway schema type using a graphql query
+| [`rename`](#action-type-rename) | renames either a type or field in the gateway schema.
 
 ### Action `type: mount`
 
