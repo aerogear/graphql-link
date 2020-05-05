@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 
 	"github.com/chirino/graphql-gw/internal/cmd/root"
 	"github.com/chirino/graphql-gw/internal/gateway"
@@ -55,6 +56,8 @@ func run(cmd *cobra.Command, args []string) {
 		log.Fatalf("Error parsing yaml file: %s.", err)
 		panic(err)
 	}
+
+	config.ConfigDirectory = filepath.Dir(ConfigFile)
 
 	// Let's only apply the env expansion to the URLs for now.
 	// We don't want to run it on queries which can have $var expressions

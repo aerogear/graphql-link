@@ -8,11 +8,14 @@ GraphQL endpoints.
 ## Features
 
 * Consolidate access to multiple upstream GraphQL endpoints via a single GraphQL gateway endpoint.
+* Introspection of the upstream endpoints to discover their GraphQL schemas.
 * The configuration uses GraphQL queries to define which upstream fields and types can be accessed.    
 * Upstream types, that are accessible, are automatically merged into the gateway schema.
 * Type conflict due to the same type name existing in multiple upstream endpoints can be avoided
   by renaming types in the gateway.
 * Supports GraphQL Queries, Mutations, and Subscriptions
+* Production mode settings to avoid the gateway's schema from dynamically changing due to 
+  changes in the upstream schemas.  
 
 ### Installing
 
@@ -57,6 +60,20 @@ Flags:
 
 Use "graphql-gw [command] --help" for more information about a command.
 ```
+
+### Development and Production Mode
+
+The `graphql-gw serve` command will run the gateway in development mode.  Development mode
+will cause the gateway to download upstream schemas on start up.  The schema files will
+be stored in the `upstreams` directory (located in the same directory as the gateway 
+configuration file).  If any of the schemas cannot be downloaded the gateway will fail to
+startup.
+
+You can use `graphql-gw serve --production` to enabled production mode.  In this mode, the 
+schema for the upstream severs will be loaded from the `upstreams` directory that they were
+stored when you used development mode.  This ensures that your gateway will have a consistent 
+schema presented, and that it's start up will not be impacted by the availability of the upstream
+servers.
 
 ## Configuration Guide
 
