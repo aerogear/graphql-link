@@ -118,7 +118,10 @@ type Subscription {}
 						return nil, err
 					}
 				case *Rename:
-
+					err := actionRunner.rename(action)
+					if err != nil {
+						return nil, err
+					}
 				}
 
 			}

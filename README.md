@@ -143,6 +143,7 @@ order.  You can select from the following actions types:
 | type |Description | 
 |---|---|
 | `mount:` | mounts an upstream field onto a gateway schema type using a graphql query
+| `rename:` |  enames either a type or field in the gateway schema.
 
 ### Action `type: mount`
 
@@ -153,6 +154,15 @@ The `mount` action can be used to mount an upstream field onto a gateway schema 
 | `upstream:` | yes | a reference to an upstream server defined in the `upstreams:` section.
 | `query:` | yes | partial graphql query document to one node in the upstream server graph.
 | `field:` | no | field name to mount the resulting node on to.  not not specified, then all the field of the node are mounted on to the the parent type.|
+
+### Action `type: rename`
+
+The `rename` action can be used to rename either a type or field in the gateway schema. 
+ 
+| Field | Required| Description | 
+|---|---| ---|
+| `field:` | no | if not set, you will be renaming the type, if set, you will be renaming a field of the type.
+| `to:` | yes | the new name  |
 
 ## Common Use Cases
 
