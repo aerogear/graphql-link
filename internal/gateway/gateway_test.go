@@ -412,3 +412,70 @@ subscription {
 	cancel()
 
 }
+
+func TestRenameField(t *testing.T) {
+
+	charactersEngine := characters.New()
+	charactersServer := httptest.NewServer(&httpgql.Handler{ServeGraphQLStream: charactersEngine.ServeGraphQLStream})
+	defer charactersServer.Close()
+
+	engine, err := gateway.New(gateway.Config{
+		Upstreams: map[string]gateway.UpstreamWrapper{
+			"characters": {
+				Upstream: &gateway.GraphQLUpstream{
+					URL:    charactersServer.URL,
+					Suffix: "_t1",
+				},
+			},
+		},
+		Types: []gateway.TypeConfig{
+			{
+				Name: `Query`,
+				Actions: []gateway.ActionWrapper{
+					{
+						Action: &gateway.Mount{
+							Upstream: "characters",
+							Query:    `query {}`,
+						},
+					},
+					{
+						Action: &gateway.Rename{
+							Field: "search",
+							To:    "find",
+						},
+					},
+				},
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	server := httptest.NewServer(&httpgql.Handler{ServeGraphQLStream: engine.ServeGraphQLStream})
+	defer server.Close()
+
+	client := httpgql.NewClient(server.URL)
+	//	// Make sure the original field name is not there...
+//	res := client.ServeGraphQL(&graphql.Request{
+//		Query: `
+//query {
+//    search(name: "Rukia") {
+//      x: id
+//    }
+//}`,
+//	})
+//	require.Error(t, res.Error())
+
+	// make sure the original field name is not there.
+	res := client.ServeGraphQL(&graphql.Request{
+		Query: `
+query {
+    find(name: "Rukia") {
+      x: id
+    }
+}`,
+	})
+
+	require.NoError(t, res.Error())
+	assert.Equal(t, `{"find":{"x":"1"}}`, string(res.Data))
+
+}
