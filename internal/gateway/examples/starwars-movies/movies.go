@@ -1,12 +1,9 @@
-package characters
+package starwars_characters
 
 import (
-	"reflect"
 	"strings"
-	"time"
 
 	"github.com/chirino/graphql"
-	"github.com/chirino/graphql/resolvers"
 	"github.com/ghodss/yaml"
 )
 
@@ -39,19 +36,14 @@ characters:
 var Schema = `
 	schema {
 		query: Query
-		subscription: Subscription
 	}
 	type Query {
 		characters: [Character!]!
 		search(name:String!): Character
 	}
-	type Subscription {
-		character(id:String!): Character
-	}
 	type Character {
 		id: ID!
 		name: Name
-		likes: Int!
 	}
 	type Name {
 		first: String
@@ -74,34 +66,9 @@ func (r root) Search(args struct{ Name string }) *character {
 	return nil
 }
 
-func (r root) Character(ctx resolvers.ExecutionContext, args struct{ Id string }) {
-	for _, x := range r.Characters {
-		if x.ID == args.Id {
-			go func() {
-				for {
-					select {
-					// Please use the context to know when the subscription is canceled.
-					case <-ctx.GetContext().Done():
-						ctx.FireSubscriptionClose()
-						return
-					case <-time.After(500 * time.Millisecond):
-						// every few  ms... like the character and fire and event.
-						x.Likes += 1
-						ctx.FireSubscriptionEvent(reflect.ValueOf(x), nil)
-					}
-				}
-			}()
-			return
-		}
-	}
-	// no matches..
-	ctx.FireSubscriptionClose()
-}
-
 type character struct {
-	ID    string `json:"id"`
-	Name  name   `json:"name"`
-	Likes int64  `json:"likes"`
+	ID   string `json:"id"`
+	Name name   `json:"name"`
 }
 
 type name struct {

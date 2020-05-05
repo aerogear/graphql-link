@@ -210,39 +210,80 @@ func mount(c actionRunner, field schema.Field, upstream *upstreamServer, upstrea
 			lastSelection.SetSelections(upstreamQueryDoc, request.Selection.Selections)
 			query := upstreamQueryDoc.String()
 
-			result := upstream.client(&graphql.Request{
+			ggraphqlRequest := &graphql.Request{
 				Context:   request.ExecutionContext.GetContext(),
 				Query:     query,
 				Variables: request.Args,
-			})
-
-			if len(result.Errors) > 0 {
-				log.Println("query failed: ", query)
-				return reflect.Value{}, result.Error()
 			}
+			if upstreamOp.Type != schema.Subscription {
 
-			data := map[string]interface{}{}
-			err := json.Unmarshal(result.Data, &data)
-			if err != nil {
-				return reflect.Value{}, err
-			}
+				result := upstream.client(ggraphqlRequest)
 
-			var v interface{} = data
-			for _, alias := range selectionAliases {
-				if m, ok := v.(map[string]interface{}); ok {
-					v = m[alias]
-				} else {
-					return reflect.Value{}, errors.Errorf("expected json field not found: " + strings.Join(selectionAliases, "."))
+				v, err := getUpstreamValue(request.Context, result, selectionAliases)
+				if err != nil {
+					log.Println("query failed: ", query)
 				}
+				return v, err
+
+			} else {
+				stream := upstream.subscriptionClient(ggraphqlRequest)
+				ctx := request.ExecutionContext
+				go func() {
+					for {
+						select {
+						case <-ctx.GetContext().Done():
+							// This handles the case where the gateway client cancels the subscription...
+							ctx.FireSubscriptionClose()
+							return
+						case result := <-stream:
+							if result == nil {
+								// the upstream closed before the client closed us
+								ctx.FireSubscriptionClose()
+								return
+							}
+							// We got data from the upstream...
+
+							v, err := getUpstreamValue(request.Context, result, selectionAliases)
+							if err != nil {
+								ctx.FireSubscriptionClose()
+								return
+							}
+							ctx.FireSubscriptionEvent(v, err)
+						}
+					}
+				}()
+				return reflect.Value{}, nil
 			}
 
-			// This enables the upstreamDomResolverInstance for all child fields of this result.
-			// needed to property handle field aliases.
-			return reflect.ValueOf(resolvers.ValueWithContext{
-				Value:   reflect.ValueOf(v),
-				Context: context.WithValue(request.Context, upstreamDomResolverInstance, true),
-			}), nil
 		}
 	})
 	return nil
+}
+
+func getUpstreamValue(ctx context.Context, result *graphql.Response, selectionAliases []string) (reflect.Value, error) {
+	if len(result.Errors) > 0 {
+		return reflect.Value{}, result.Error()
+	}
+
+	data := map[string]interface{}{}
+	err := json.Unmarshal(result.Data, &data)
+	if err != nil {
+		return reflect.Value{}, err
+	}
+
+	var v interface{} = data
+	for _, alias := range selectionAliases {
+		if m, ok := v.(map[string]interface{}); ok {
+			v = m[alias]
+		} else {
+			return reflect.Value{}, errors.Errorf("expected json field not found: " + strings.Join(selectionAliases, "."))
+		}
+	}
+
+	// This enables the upstreamDomResolverInstance for all child fields of this result.
+	// needed to property handle field aliases.
+	return reflect.ValueOf(resolvers.ValueWithContext{
+		Value:   reflect.ValueOf(v),
+		Context: context.WithValue(ctx, upstreamDomResolverInstance, true),
+	}), nil
 }
