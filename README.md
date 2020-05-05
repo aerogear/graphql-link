@@ -1,17 +1,17 @@
 # graphql-gw
 
 This is a GraphQL gateway that lets you easily compose or federate other
-GraphQL endpoints.
+GraphQL upstream servers.
 
 <img src="https://raw.githubusercontent.com/chirino/graphql-gw/master/docs/images/graphql-gw-overview.jpg" alt="diagram of graphql-gw" width="488">
 
 ## Features
 
-* Consolidate access to multiple upstream GraphQL endpoints via a single GraphQL gateway endpoint.
-* Introspection of the upstream endpoints to discover their GraphQL schemas.
+* Consolidate access to multiple upstream GraphQL servers via a single GraphQL gateway server.
+* Introspection of the upstream server to discover their GraphQL schemas.
 * The configuration uses GraphQL queries to define which upstream fields and types can be accessed.    
 * Upstream types, that are accessible, are automatically merged into the gateway schema.
-* Type conflict due to the same type name existing in multiple upstream endpoints can be avoided
+* Type conflict due to the same type name existing in multiple upstream servers can be avoided
   by renaming types in the gateway.
 * Supports GraphQL Queries, Mutations, and Subscriptions
 * Production mode settings to avoid the gateway's schema from dynamically changing due to 
@@ -79,34 +79,34 @@ servers.
 
 ### `listen:`
 
-Set the `listen:` to the host and port you want the graphql endpoint to listen on. 
+Set the `listen:` to the host and port you want the graphql server to listen on. 
 
 Example:
 ```yaml
 listen: localhost:8080
 ```
 
-### `endpoints:`
+### `upstreams:`
 
-The endpoints section holds a map of all the upstream endpoint address that you will be
-accessing with the gateway.  The example below defines two endpoints: `anilist` and `users`.
-Keep in mind that the URL configured must be a graphql endpoint that is accessible from the 
+The upstreams section holds a map of all the upstream severs that you will be
+accessing with the gateway.  The example below defines two upstream servers: `anilist` and `users`.
+Keep in mind that the URL configured must be a graphql server that is accessible from the 
 gateway's network. 
 
 ```yaml
-endpoints:
+upstreams:
   anilist:
     url: https://graphql.anilist.co/
   users:
     url: https://users.acme.io/graphql
 ```
 
-If there are duplicate types across the endpoints you can configure either type name
-prefixes or suffixes on the endpoints so that conflicts can be avoided when imported
+If there are duplicate types across the upstream severs you can configure either type name
+prefixes or suffixes on the upstream severs so that conflicts can be avoided when imported
 into the gateway.  Example:
 
 ```yaml
-endpoints:
+upstreams:
   anilist:
     url: https://graphql.anilist.co/
     prefix: Ani
@@ -118,49 +118,65 @@ endpoints:
 ### `types:`
 
 Use the `types:` section of the configuration to define the fields that can be 
-accessed by clients of the `graphql-gw`.  The root query and mutation type names 
-are `Query` and `Mutation`.  Use those to configure the fields accessible in the 
-root queries.  
+accessed by clients of the `graphql-gw`.  The root query, mutation and subscription 
+type names are `Query`, `Mutation`, `Subscription`.  Use those to configure the fields 
+accessible from the root queries.  
 
 The following example will add a field `myfield` to the `Query` type where the type
-is the root query of the `anilist` endpoint. 
+is the root query of the `anilist` upstream server. 
 
 ```yaml
 types:
   - name: Query
-    fields:
-    - endpoint: anilist
+    actions:
+    - type: mount
+      field: myfield
+      upstream: anilist
       query: query {}
-      name: myfield
 ```
 
-`fields:` is a list of the following configuration elements:
+### `actions:`
+
+`actions:` is a list configuration actions to take against on the named type.  The actions are processed in 
+order.  You can select from the following actions types:
+
+| type |Description | 
+|---|---|
+| `mount:` | mounts an upstream field onto a gateway schema type using a graphql query
+
+### Action `type: mount`
+
+The `mount` action can be used to mount an upstream field onto a gateway schema type using a graphql query
  
 | Field | Required| Description | 
 |---|---| ---|
-| `endpoint:` | yes | a reference to an endpoint defined in the `endpoints:` section.
-| `query:` | yes | partial graphql query document to one node in the upstream endpoint graph.
-| `name:` | no | field name to mount the resulting node on to.  not not specified, then all the field of the node are mounted on to the the parent type.|
+| `upstream:` | yes | a reference to an upstream server defined in the `upstreams:` section.
+| `query:` | yes | partial graphql query document to one node in the upstream server graph.
+| `field:` | no | field name to mount the resulting node on to.  not not specified, then all the field of the node are mounted on to the the parent type.|
 
-### Importing all the fields of an upstream graphql endpoint.
+## Common Use Cases
 
-If you want to import all the fields of an upstream endpoint object, simply don't specify 
+### Importing all the fields of an upstream graphql upstream server.
+
+If you want to import all the fields of an upstream server type, simply don't specify 
 the name for the field to mount the query on to. The following example will import all the
 query fields onto the `Query` type and all the mutation fields on the `Mutation` type. 
 
 ```yaml
 types:
   - name: Query
-    fields:
-    - endpoint: anilist
+    actions:
+    - type: mount
+      upstream: anilist
       query: query {}
   - name: Mutation
-    fields:
-    - endpoint: anilist
+    actions:
+    - type: mount
+      upstream: anilist
       query: mutation {}
 ```
 
-### Importing a nested field of upstream graphql endpoint.
+### Importing a nested field of upstream graphql upstream.
 
 Use a full graphql query to access nested child graph elements of the upstream
 graphql server.  Feel free to use argument variables or literals in the query. 
@@ -170,20 +186,21 @@ field.
 ```yaml
 types:
   - name: Query
-    fields:
-    - endpoint: anilist
+    actions:
+    - type: mount
+      field: pagedCharacterSearch
+      upstream: anilist
       query: |
         query ($search:String, $page:Int) {
           Page(page:$page, perPage:10) {
             characters(search:$search)
           }
         }
-      name: pagedCharacterSearch
 ```
 
 In the example above a `pagedCharacterSearch(search:String, page:Int)` field would 
 be defined on the Query type and it would return the type returned by the `characters`
-field of the anilist endpoint. 
+field of the anilist upstream. 
 
 ## License
 
