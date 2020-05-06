@@ -63,6 +63,10 @@ func mount(c actionRunner, field schema.Field, upstream *upstreamServer, upstrea
 
 	// find the result type of the upstream query.
 	var upstreamResultType schema.Type = upstream.schema.EntryPoints[upstreamOp.Type]
+	if upstreamResultType == nil {
+		return errors.Errorf("The upstream does not have any %s entry points", upstreamOp.Type)
+	}
+
 	for _, s := range selections {
 		upstreamResultType = schema.DeepestType(s.Field.Type)
 	}
@@ -179,6 +183,13 @@ func mount(c actionRunner, field schema.Field, upstream *upstreamServer, upstrea
 			upstreamQueryDoc.Parse(upstreamQuery)
 			upstreamOp := upstreamQueryDoc.Operations[0]
 
+			vars := schema.InputValueList{}
+			for _, v := range upstreamOp.Vars {
+				c := *v
+				c.Type = upstream.ToUpstreamType(c.Type)
+				vars = append(vars, &c)
+			}
+
 			// find the leaf selection the upstream query...
 			lastSelection := schema.Selection(upstreamOp)
 			lastSelections := lastSelection.GetSelections(upstreamQueryDoc)
@@ -196,16 +207,19 @@ func mount(c actionRunner, field schema.Field, upstream *upstreamServer, upstrea
 			}
 
 			for k, t := range argsToAdd {
-				upstreamOp.Vars = append(upstreamOp.Vars, &schema.InputValue{
+				c := schema.InputValue{
 					Name: "$" + k,
-					Type: t,
-				})
+					Type: upstream.ToUpstreamType(t),
+				}
+				vars = append(vars, &c)
+
 				lastSelectionField := lastSelection.(*schema.FieldSelection)
 				lastSelectionField.Arguments = append(lastSelectionField.Arguments, schema.Argument{
 					Name:  k,
 					Value: &schema.Variable{Name: k},
 				})
 			}
+			upstreamOp.Vars = vars
 
 			lastSelection.SetSelections(upstreamQueryDoc, request.Selection.Selections)
 			query := upstreamQueryDoc.String()
@@ -258,6 +272,22 @@ func mount(c actionRunner, field schema.Field, upstream *upstreamServer, upstrea
 		}
 	})
 	return nil
+}
+
+func (u *upstreamServer) ToUpstreamType(t schema.Type) schema.Type {
+	switch t := t.(type) {
+	case *schema.NonNull:
+		return &schema.NonNull{OfType: u.ToUpstreamType(t.OfType)}
+	case *schema.List:
+		return &schema.List{OfType: u.ToUpstreamType(t.OfType)}
+	case schema.NamedType:
+		name := t.TypeName()
+		name = u.gatewayToUpstreamTypeNames[name]
+		return &schema.TypeName{
+			Name: name,
+		}
+	}
+	return t
 }
 
 func getUpstreamValue(ctx context.Context, result *graphql.Response, selectionAliases []string) (reflect.Value, error) {

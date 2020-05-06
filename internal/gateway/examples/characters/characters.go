@@ -1,6 +1,7 @@
 package characters
 
 import (
+	"fmt"
 	"reflect"
 	"strings"
 	"time"
@@ -40,13 +41,22 @@ var Schema = `
 	schema {
 		query: Query
 		subscription: Subscription
+		mutation: Mutation
 	}
 	type Query {
 		characters: [Character!]!
 		search(name:String!): Character
 	}
+	type Mutation {
+		add(character:CharacterInput!): Character!
+	}
 	type Subscription {
 		character(id:String!): Character
+	}
+	input CharacterInput {
+		id: ID
+		name: NameInput
+		likes: Int
 	}
 	type Character {
 		id: ID!
@@ -57,6 +67,10 @@ var Schema = `
 		first: String
 		last: String
 		full: String
+	}
+	input NameInput {
+		first: String
+		last: String
 	}
 `
 
@@ -72,6 +86,37 @@ func (r root) Search(args struct{ Name string }) *character {
 		}
 	}
 	return nil
+}
+
+func (r root) Add(args struct {
+	Character struct {
+		ID   *string
+		Name *struct {
+			First *string
+			Last  *string
+		}
+		Likes *int64
+	}
+}) (to character, err error) {
+	from := args.Character
+	if from.ID == nil {
+		s := fmt.Sprintf("x%X", time.Now())
+		from.ID = &s
+	}
+	to.ID = *from.ID
+	if from.Name != nil {
+		if from.Name.First != nil {
+			to.Name.First = *from.Name.First
+		}
+		if from.Name.Last != nil {
+			to.Name.Last = *from.Name.Last
+		}
+	}
+	if from.Likes != nil {
+		to.Likes = *from.Likes
+	}
+	r.Characters = append(r.Characters, to)
+	return to, nil
 }
 
 func (r root) Character(ctx resolvers.ExecutionContext, args struct{ Id string }) {

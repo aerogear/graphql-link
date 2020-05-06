@@ -29,10 +29,12 @@ type Config struct {
 }
 
 type upstreamServer struct {
-	client             func(request *graphql.Request) *graphql.Response
-	subscriptionClient func(request *graphql.Request) graphql.ResponseStream
-	schema             *schema.Schema
-	info               GraphQLUpstream
+	client                     func(request *graphql.Request) *graphql.Response
+	subscriptionClient         func(request *graphql.Request) graphql.ResponseStream
+	originalNames              map[string]schema.NamedType
+	gatewayToUpstreamTypeNames map[string]string
+	schema                     *schema.Schema
+	info                       GraphQLUpstream
 }
 
 var validGraphQLIdentifierRegex = regexp.MustCompile(`^[A-Za-z_][A-Za-z_0-9]*$`)
@@ -74,9 +76,12 @@ type Subscription {}
 				Transport: proxyTransport(0),
 			}
 			upstreams[eid] = &upstreamServer{
-				info:               *upstream,
-				client:             c.ServeGraphQL,
-				subscriptionClient: c.ServeGraphQLStream,
+				client:                     c.ServeGraphQL,
+				subscriptionClient:         c.ServeGraphQLStream,
+				originalNames:              map[string]schema.NamedType{},
+				gatewayToUpstreamTypeNames: map[string]string{},
+				info:                       *upstream,
+				schema:                     nil,
 			}
 		default:
 			panic("invalid upstream type")
@@ -89,6 +94,9 @@ type Subscription {}
 			return nil, err
 		}
 
+		for k, v := range s.Types {
+			upstream.originalNames[k] = v
+		}
 		if upstream.info.Prefix != "" {
 			s.RenameTypes(func(x string) string { return upstream.info.Prefix + x })
 		}
@@ -96,6 +104,9 @@ type Subscription {}
 			s.RenameTypes(func(x string) string { return x + upstream.info.Suffix })
 		}
 		upstreams[eid].schema = s
+		for n, t := range upstream.originalNames {
+			upstream.gatewayToUpstreamTypeNames[t.TypeName()] = n
+		}
 	}
 
 	actionRunner := actionRunner{

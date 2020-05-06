@@ -2,6 +2,7 @@ package gateway_test
 
 import (
 	"context"
+	"encoding/json"
 	"net/http/httptest"
 	"testing"
 
@@ -454,19 +455,19 @@ func TestRenameField(t *testing.T) {
 	defer server.Close()
 
 	client := httpgql.NewClient(server.URL)
-	//	// Make sure the original field name is not there...
-//	res := client.ServeGraphQL(&graphql.Request{
-//		Query: `
-//query {
-//    search(name: "Rukia") {
-//      x: id
-//    }
-//}`,
-//	})
-//	require.Error(t, res.Error())
+	// Make sure the original field name is not there...
+	res := client.ServeGraphQL(&graphql.Request{
+		Query: `
+	query {
+	   search(name: "Rukia") {
+	     x: id
+	   }
+	}`,
+	})
+	require.Error(t, res.Error())
 
 	// make sure the original field name is not there.
-	res := client.ServeGraphQL(&graphql.Request{
+	res = client.ServeGraphQL(&graphql.Request{
 		Query: `
 query {
     find(name: "Rukia") {
@@ -478,4 +479,53 @@ query {
 	require.NoError(t, res.Error())
 	assert.Equal(t, `{"find":{"x":"1"}}`, string(res.Data))
 
+}
+
+func TestMutationWithObjectInput(t *testing.T) {
+
+	charactersEngine := characters.New()
+	charactersServer := httptest.NewServer(&httpgql.Handler{ServeGraphQLStream: charactersEngine.ServeGraphQLStream})
+	defer charactersServer.Close()
+
+	engine, err := gateway.New(gateway.Config{
+		Upstreams: map[string]gateway.UpstreamWrapper{
+			"characters": {
+				Upstream: &gateway.GraphQLUpstream{
+					URL:    charactersServer.URL,
+					Suffix: "_t1",
+				},
+			},
+		},
+		Types: []gateway.TypeConfig{
+			{
+				Name: `Mutation`,
+				Actions: []gateway.ActionWrapper{
+					{
+						Action: &gateway.Mount{
+							Upstream: "characters",
+							Query:    `mutation {}`,
+						},
+					},
+				},
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	server := httptest.NewServer(&httpgql.Handler{ServeGraphQLStream: engine.ServeGraphQLStream})
+	defer server.Close()
+
+	client := httpgql.NewClient(server.URL)
+	res := client.ServeGraphQL(&graphql.Request{
+		Variables: json.RawMessage(`{"character":{"name":{"first":"Hiram", "last":"Chirino"}}}`),
+		Query: `
+mutation($character:CharacterInput_t1!) {
+	add(character:$character) {
+		name { full }
+	}
+}`,
+	})
+
+	require.NoError(t, res.Error())
+	assert.Equal(t, `{"add":{"name":{"full":"Hiram Chirino"}}}`, string(res.Data))
 }
