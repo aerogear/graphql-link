@@ -29,48 +29,27 @@ func run(cmd *cobra.Command, args []string) {
 	os.MkdirAll(dir, 0755)
 
 	configFile := filepath.Join(dir, "graphql-gw.yaml")
-	err := ioutil.WriteFile(configFile, []byte(`#
-# Configure the host and port the service will listen on
+	err := ioutil.WriteFile(configFile, []byte(`# ------------------------------------------------
+# graphql-gw config docs: https://bit.ly/2L5TgyB
+# ------------------------------------------------
 listen: localhost:8080
 
-#
-# Configure the GraphQL upstream servers you will be accessing
-upstreams:
-  anilist:
-    url: https://graphql.anilist.co/
-    prefix: Ani
-
-types:
-  - name: Query
-    actions:
-      # mounts all the fields of the root anilist query onto the Query type
-      - type: mount
-        upstream: anilist
-        query: query {}
-
-      # mounts on a new ani_query field the root anilist query
-      - type: mount
-        name: ani_query
-        upstream: anilist
-        query: query {}
-
-      # Adds a animeCharacters($page:Int, $perPage:Int, $search:String) field
-      - type: mount
-        name: animeCharacters
-        upstream: anilist
-        query: |
-          query ($page:Int, $perPage:Int, $search:String) {
-            Page(page:$page, perPage:$perPage) {
-              characters(search:$search)
-            }
-          }
-
-  - name: Mutation
-    actions:
-      # mounts all the fields of the root anilist mutation onto the Mutation type
-      - type: mount
-        upstream: anilist
-        query: mutation {}
+##
+## Example config to configure an upstream server and expose it's 
+## Query type via the gateway's Query type.
+##
+# upstreams:
+#   anilist:
+#     url: https://graphql.anilist.co/
+#     prefix: Ani
+# 
+# types:
+#   - name: Query
+#     actions:
+#       - type: mount
+#         upstream: anilist
+#         query: query {}
+# 
 
 `), 0644)
 
