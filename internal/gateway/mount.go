@@ -199,8 +199,8 @@ func mount(c actionRunner, field schema.Field, upstream *upstreamServer, upstrea
 			}
 			// lets figure out what variables we need to add to the query...
 			argsToAdd := map[string]schema.Type{}
-			for _, arg := range request.Field.Args {
-				argsToAdd[arg.Name] = arg.Type
+			for _, arg := range request.Selection.Arguments {
+				argsToAdd[arg.Name] = request.Field.Args.Get(arg.Name).Type
 			}
 			for _, arg := range upstreamOp.Vars {
 				delete(argsToAdd, strings.TrimPrefix(arg.Name, "$"))
