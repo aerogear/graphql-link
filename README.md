@@ -12,9 +12,11 @@ GraphQL upstream servers.
 * The configuration uses GraphQL queries to define which upstream fields and types can be accessed.    
 * Upstream types, that are accessible, are automatically merged into the gateway schema.
 * Type conflict due to the same type name existing in multiple upstream servers can be avoided
+  
   by renaming types in the gateway.
 * Supports GraphQL Queries, Mutations, and Subscriptions
 * Production mode settings to avoid the gateway's schema from dynamically changing due to 
+  
   changes in the upstream schemas.  
 
 ### Installing
@@ -82,6 +84,7 @@ servers.
 Set the `listen:` to the host and port you want the graphql server to listen on. 
 
 Example:
+
 ```yaml
 listen: localhost:8080
 ```
@@ -115,15 +118,29 @@ upstreams:
     url: https://users.acme.io/graphql
 ```
 
+### `schema:`
+
+The optional schema section allows you configure the root query type names.  The default values of those fields are shown in the folllowing table.
+
+| Field       | Default        |
+| ----------- | -------------- |
+| `query:`    | `Query`        |
+| `mutation:` | `Mutation`     |
+| `schema:`   | `Subscription` |
+
+The example below only the root mutaiton type name is changed from it's default value to `GatewayMutation`.  Doing something like this can be useful if you do not want to rename type name from an upstream it contains a type name for one of these root query type names.
+
+```yaml
+schema:
+  mutation: GatewayMutation
+```
+
 ### `types:`
 
 Use the `types:` section of the configuration to define the fields that can be 
-accessed by clients of the `graphql-gw`.  The root query, mutation and subscription 
-type names are `Query`, `Mutation`, `Subscription`.  Use those to configure the fields 
-accessible from the root queries.  
+accessed by clients of the `graphql-gw`.   You typicaly start by configuring the root query type names
 
-The following example will add a field `myfield` to the `Query` type where the type
-is the root query of the `anilist` upstream server. 
+The following example will add a field `myfield` to the `Query` type where the type is the root query of the `anilist` upstream server. 
 
 ```yaml
 types:
@@ -140,29 +157,29 @@ types:
 `actions:` is a list configuration actions to take against on the named type.  The actions are processed in 
 order.  You can select from the following actions types:
 
-| type |Description | 
-|---|---|
-| [`mount`](#action-type-mount) | mounts an upstream field onto a gateway schema type using a graphql query
-| [`rename`](#action-type-rename) | renames either a type or field in the gateway schema.
+| type                            | Description                                                               |
+| ------------------------------- | ------------------------------------------------------------------------- |
+| [`mount`](#action-type-mount)   | mounts an upstream field onto a gateway schema type using a graphql query |
+| [`rename`](#action-type-rename) | renames either a type or field in the gateway schema.                     |
 
 ### Action `type: mount`
 
 The `mount` action can be used to mount an upstream field onto a gateway schema type using a graphql query
- 
-| Field | Required| Description | 
-|---|---| ---|
-| `upstream:` | yes | a reference to an upstream server defined in the `upstreams:` section.
-| `query:` | yes | partial graphql query document to one node in the upstream server graph.
-| `field:` | no | field name to mount the resulting node on to.  not not specified, then all the field of the node are mounted on to the the parent type.|
+
+| Field       | Required | Description                                                                                                                             |
+| ----------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `upstream:` | yes      | a reference to an upstream server defined in the `upstreams:` section.                                                                  |
+| `query:`    | yes      | partial graphql query document to one node in the upstream server graph.                                                                |
+| `field:`    | no       | field name to mount the resulting node on to.  not not specified, then all the field of the node are mounted on to the the parent type. |
 
 ### Action `type: rename`
 
 The `rename` action can be used to rename either a type or field in the gateway schema. 
- 
-| Field | Required| Description | 
-|---|---| ---|
-| `field:` | no | if not set, you will be renaming the type, if set, you will be renaming a field of the type.
-| `to:` | yes | the new name  |
+
+| Field    | Required | Description                                                                                  |
+| -------- | -------- | -------------------------------------------------------------------------------------------- |
+| `field:` | no       | if not set, you will be renaming the type, if set, you will be renaming a field of the type. |
+| `to:`    | yes      | the new name                                                                                 |
 
 ## Common Use Cases
 

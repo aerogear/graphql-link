@@ -21,13 +21,20 @@ type TypeConfig struct {
 	Actions []ActionWrapper `json:"actions"`
 }
 
+type SchemaConfig struct {
+	Query        string `json:"query"`
+	Mutation     string `json:"mutation"`
+	Subscription string `json:"subscription"`
+}
+
 type Config struct {
 	ConfigDirectory        string                     `json:"-"`
 	Log                    *log.Logger                `json:"-"`
 	DisableSchemaDownloads bool                       `json:"disable-schema-downloads"`
 	EnabledSchemaStorage   bool                       `json:"enable-schema-storage"`
 	Upstreams              map[string]UpstreamWrapper `json:"upstreams"`
-	Types                  []TypeConfig               `json:"types"`
+	Schema                 SchemaConfig
+	Types                  []TypeConfig `json:"types"`
 }
 
 type upstreamServer struct {
@@ -64,6 +71,25 @@ type Query {}
 type Mutation {}
 type Subscription {}
 `)
+
+	// To support configuring the names of the root types.
+	root.Schema.RenameTypes(func(n string) string {
+		switch n {
+		case "Query":
+			if config.Schema.Query != "" {
+				return config.Schema.Query
+			}
+		case "Mutation":
+			if config.Schema.Mutation != "" {
+				return config.Schema.Mutation
+			}
+		case "Subscription":
+			if config.Schema.Subscription != "" {
+				return config.Schema.Subscription
+			}
+		}
+		return n
+	})
 
 	if err != nil {
 		panic(err)

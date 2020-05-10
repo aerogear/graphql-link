@@ -42,6 +42,48 @@ func RunWithCharacterGW(t *testing.T, c string, run func(gateway, characters *ht
 	run(httpgql.NewClient(server.URL), httpgql.NewClient(charactersServer.URL))
 }
 
+func TestRootTypeNames(t *testing.T) {
+
+	// Verify default config
+	config := gateway.Config{}
+	engine, err := gateway.New(config)
+	require.NoError(t, err)
+	assert.Equal(t, `type Mutation {
+}
+type Query {
+}
+type Subscription {
+}
+schema {
+  mutation: Mutation
+  query: Query
+  subscription: Subscription
+}
+`, engine.Schema.String())
+
+	config = gateway.Config{
+		Schema: gateway.SchemaConfig{
+			Query:        "Q",
+			Mutation:     "M",
+			Subscription: "S",
+		},
+	}
+	engine, err = gateway.New(config)
+	require.NoError(t, err)
+	assert.Equal(t, `type M {
+}
+type Q {
+}
+type S {
+}
+schema {
+  mutation: M
+  query: Q
+  subscription: S
+}
+`, engine.Schema.String())
+}
+
 func TestFieldAliases(t *testing.T) {
 	RunWithCharacterGW(t, `
       types:
