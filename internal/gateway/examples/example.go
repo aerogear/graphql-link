@@ -1,65 +1,41 @@
 package main
 
 import (
-	"fmt"
 	"log"
-	"net"
-	"net/http"
-	"net/http/httptest"
 	"time"
 
-	"github.com/chirino/graphql"
+	"github.com/chirino/graphql-gw/internal/gateway"
 	"github.com/chirino/graphql-gw/internal/gateway/examples/characters"
 	"github.com/chirino/graphql-gw/internal/gateway/examples/shows"
 	"github.com/chirino/graphql-gw/internal/gateway/examples/starwars_characters"
-	"github.com/chirino/graphql/graphiql"
-	"github.com/chirino/graphql/httpgql"
 )
 
 func main() {
+	log.Println("===== Characters =====")
 	charactersEngine := characters.New()
-	charactersServer := StartupServer("0.0.0.0", 8081, charactersEngine)
+	charactersServer, err := gateway.StartServer("0.0.0.0", 8081, charactersEngine, gateway.SimpleLog)
+	if err != nil {
+		panic(err)
+	}
 	defer charactersServer.Close()
 
+	log.Println("===== Shows =====")
 	showsEngine := shows.New()
-	showsServer := StartupServer("0.0.0.0", 8082, showsEngine)
+	showsServer, err := gateway.StartServer("0.0.0.0", 8082, showsEngine, gateway.SimpleLog)
+	if err != nil {
+		panic(err)
+	}
 	defer showsServer.Close()
 
+	log.Println("===== Starwars =====")
 	starwars_charactersEngine := starwars_characters.New()
-	starwars_charactersServer := StartupServer("0.0.0.0", 8083, starwars_charactersEngine)
+	starwars_charactersServer, err := gateway.StartServer("0.0.0.0", 8083, starwars_charactersEngine, gateway.SimpleLog)
+	if err != nil {
+		panic(err)
+	}
 	defer starwars_charactersServer.Close()
 
 	for {
 		time.Sleep(time.Hour)
 	}
-}
-
-func StartupServer(host string, port uint16, engine *graphql.Engine) *httptest.Server {
-	l, err := net.Listen("tcp", fmt.Sprintf("%s:%d", host, port))
-	if err != nil {
-		switch host {
-		case "localhost":
-			fallthrough
-		case "127.0.0.1":
-			host = "[::1]"
-			if l, err = net.Listen("tcp6", fmt.Sprintf("%s:%d", host, port)); err != nil {
-				panic(fmt.Sprintf("httptest: failed to listen on a port: %v", err))
-			}
-		default:
-			panic(fmt.Sprintf("httptest: failed to listen on a port: %v", err))
-		}
-	}
-
-	mux := http.NewServeMux()
-	mux.Handle("/graphql", &httpgql.Handler{ServeGraphQLStream: engine.ServeGraphQLStream})
-	endpoint := fmt.Sprintf("http://%s:%d/graphql", host, port)
-	mux.Handle("/", graphiql.New(endpoint, true))
-	ts := &httptest.Server{
-		Listener: l,
-		Config:   &http.Server{Handler: mux},
-	}
-	log.Printf("GraphQL endpoint running at %s", endpoint)
-	log.Printf("GraphQL UI running at http://%s:%d", host, port)
-	ts.Start()
-	return ts
 }

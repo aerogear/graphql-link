@@ -3,7 +3,6 @@ package serve
 import (
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net"
 	"net/http"
 	"os"
@@ -38,6 +37,7 @@ type Config struct {
 }
 
 func run(cmd *cobra.Command, args []string) {
+	log := gateway.SimpleLog
 	vebosityFmt := "%v"
 	if !root.Verbose {
 		vebosityFmt = "%+v\n"
@@ -58,6 +58,7 @@ func run(cmd *cobra.Command, args []string) {
 	}
 
 	config.ConfigDirectory = filepath.Dir(ConfigFile)
+	config.Log = gateway.SimpleLog
 
 	// Let's only apply the env expansion to the URLs for now.
 	// We don't want to run it on queries which can have $var expressions

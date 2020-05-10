@@ -2,7 +2,6 @@ package gateway
 
 import (
 	"io/ioutil"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -16,7 +15,7 @@ func loadEndpointSchema(config Config, eid string, upstream *upstreamServer) (*s
 
 	schemaText := upstream.info.Schema
 	if strings.TrimSpace(schemaText) != "" {
-		log.Printf("using static schema for upstream %s: %s", eid, upstream.info.URL)
+		config.Log.Printf("using static schema for upstream %s: %s", eid, upstream.info.URL)
 		return Parse(schemaText)
 	}
 
@@ -27,12 +26,12 @@ func loadEndpointSchema(config Config, eid string, upstream *upstreamServer) (*s
 	}
 
 	if !config.DisableSchemaDownloads {
-		log.Printf("downloading schema for upstream %s: %s", eid, upstream.info.URL)
+		config.Log.Printf("downloading schema for upstream %s: %s", eid, upstream.info.URL)
 		s, err := graphql.GetSchema(upstream.client)
 
 		if err != nil {
 			if upstreamSchemaFileExists {
-				log.Printf("download failed (will load cached schema version): %v", err)
+				config.Log.Printf("download failed (will load cached schema version): %v", err)
 			} else {
 				return nil, errors.Wrap(err, "download failed")
 			}
@@ -50,7 +49,7 @@ func loadEndpointSchema(config Config, eid string, upstream *upstreamServer) (*s
 	}
 
 	if upstreamSchemaFileExists {
-		log.Printf("loading previously stored schema: %s", upstreamSchemaFile)
+		config.Log.Printf("loading previously stored schema: %s", upstreamSchemaFile)
 		// This could be a transient failure... see if we have previously save it's schema.
 		data, err := ioutil.ReadFile(upstreamSchemaFile)
 		if err != nil {

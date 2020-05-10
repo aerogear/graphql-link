@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -22,6 +23,7 @@ type TypeConfig struct {
 
 type Config struct {
 	ConfigDirectory        string                     `json:"-"`
+	Log                    *log.Logger                `json:"-"`
 	DisableSchemaDownloads bool                       `json:"disable-schema-downloads"`
 	EnabledSchemaStorage   bool                       `json:"enable-schema-storage"`
 	Upstreams              map[string]UpstreamWrapper `json:"upstreams"`
@@ -40,7 +42,9 @@ type upstreamServer struct {
 var validGraphQLIdentifierRegex = regexp.MustCompile(`^[A-Za-z_][A-Za-z_0-9]*$`)
 
 func New(config Config) (*graphql.Engine, error) {
-
+	if config.Log == nil {
+		config.Log = NoLog
+	}
 	if config.ConfigDirectory == "" {
 		config.ConfigDirectory = "."
 	}
