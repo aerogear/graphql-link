@@ -262,4 +262,3 @@ fragment friendsFragment on Character {
   }
 }
 `
-

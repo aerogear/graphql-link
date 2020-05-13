@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"reflect"
 	"regexp"
 	"sort"
@@ -56,7 +55,7 @@ func mount(c actionRunner, field schema.Field, upstream *upstreamServer, upstrea
 	}
 	upstreamOp := upstreamQueryDoc.Operations[0]
 
-	selections, err := getSelectedFields(upstream.schema, upstreamQueryDoc, upstreamOp)
+	upstreamSelections, err := getSelectedFields(upstream.schema, upstreamQueryDoc, upstreamOp)
 	if err != nil {
 		return err
 	}
@@ -67,7 +66,7 @@ func mount(c actionRunner, field schema.Field, upstream *upstreamServer, upstrea
 		return errors.Errorf("The upstream does not have any %s entry points", upstreamOp.Type)
 	}
 
-	for _, s := range selections {
+	for _, s := range upstreamSelections {
 		upstreamResultType = schema.DeepestType(s.Field.Type)
 	}
 
@@ -106,7 +105,7 @@ func mount(c actionRunner, field schema.Field, upstream *upstreamServer, upstrea
 	field.Type = upstreamResultType
 
 	variablesUsed := map[string]*schema.InputValue{}
-	for _, selection := range selections {
+	for _, selection := range upstreamSelections {
 		for _, arg := range selection.Selection.Arguments {
 			err := collectVariablesUsed(variablesUsed, upstreamQueryDoc.Operations[0], arg.Value)
 			if err != nil {
@@ -118,9 +117,9 @@ func mount(c actionRunner, field schema.Field, upstream *upstreamServer, upstrea
 	field.Args = []*schema.InputValue{}
 
 	// query {} has no selections...
-	if len(selections) > 0 {
+	if len(upstreamSelections) > 0 {
 
-		lastSelection := selections[len(selections)-1]
+		lastSelection := upstreamSelections[len(upstreamSelections)-1]
 		field.Type = lastSelection.Field.Type
 
 		for _, arg := range lastSelection.Field.Args {
@@ -170,76 +169,103 @@ func mount(c actionRunner, field schema.Field, upstream *upstreamServer, upstrea
 	// overwrite the field with the provided config
 	*existingField = field
 
-	selectionAliases := []string{}
-	for _, s := range selections {
-		selectionAliases = append(selectionAliases, s.Selection.Alias)
-	}
-
 	c.Resolver.Set(c.Type.Name, field.Name, func(request *resolvers.ResolveRequest, _ resolvers.Resolution) resolvers.Resolution {
-		return func() (reflect.Value, error) {
 
-			// reparse to avoid modifying the original.
-			upstreamQueryDoc := &schema.QueryDocument{}
-			upstreamQueryDoc.Parse(upstreamQuery)
-			upstreamOp := upstreamQueryDoc.Operations[0]
+		loads := request.Context.Value(UpstreamLoadsContextKey).(UpstreamLoads)
+		load := loads.loads[upstream.id]
 
-			vars := schema.InputValueList{}
-			for _, v := range upstreamOp.Vars {
-				c := *v
-				c.Type = upstream.ToUpstreamType(c.Type)
-				vars = append(vars, &c)
+		if load == nil {
+			load = &UpstreamLoad{
+				ctx:       request.Context,
+				upstream:  upstream,
+				variables: request.Args,
 			}
+			loads.loads[upstream.id] = load
+		} else {
+			for k, v := range request.Args {
+				// TODO: handle dup arg name conflict.
+				load.variables[k] = v
+			}
+		}
 
-			// find the leaf selection the upstream query...
-			lastSelection := schema.Selection(upstreamOp)
-			lastSelections := lastSelection.GetSelections(upstreamQueryDoc)
-			for len(lastSelections) > 0 {
-				lastSelection = lastSelections[0]
-				lastSelections = lastSelection.GetSelections(upstreamQueryDoc)
-			}
-			// lets figure out what variables we need to add to the query...
-			argsToAdd := map[string]schema.Type{}
-			for _, arg := range request.Selection.Arguments {
-				argsToAdd[arg.Name] = request.Field.Args.Get(arg.Name).Type
-			}
-			for _, arg := range upstreamOp.Vars {
-				delete(argsToAdd, strings.TrimPrefix(arg.Name, "$"))
-			}
+		upstreamQueryDoc := upstreamQueryDoc.DeepCopy()
+		upstreamOp := upstreamQueryDoc.Operations[0]
 
-			for k, t := range argsToAdd {
-				c := schema.InputValue{
-					Name: "$" + k,
-					Type: upstream.ToUpstreamType(t),
+		vars := schema.InputValueList{}
+		for _, v := range upstreamOp.Vars {
+			c := *v
+			c.Type = upstream.ToUpstreamType(c.Type)
+			vars = append(vars, &c)
+		}
+
+		// find the leaf selection the upstream query...
+		selectionPath := []schema.Selection{}
+		lastSelection := schema.Selection(upstreamOp)
+		lastSelections := lastSelection.GetSelections(upstreamQueryDoc)
+		for len(lastSelections) > 0 {
+			lastSelection = lastSelections[0]
+			selectionPath = append(selectionPath, lastSelection)
+			lastSelections = lastSelection.GetSelections(upstreamQueryDoc)
+		}
+
+		// lets figure out what variables we need to add to the query...
+		argsToAdd := map[string]schema.Type{}
+		for _, arg := range request.Selection.Arguments {
+			argsToAdd[arg.Name] = request.Field.Args.Get(arg.Name).Type
+		}
+		for _, arg := range upstreamOp.Vars {
+			delete(argsToAdd, strings.TrimPrefix(arg.Name, "$"))
+		}
+
+		for k, t := range argsToAdd {
+			c := schema.InputValue{
+				Name: "$" + k,
+				Type: upstream.ToUpstreamType(t),
+			}
+			vars = append(vars, &c)
+
+			lastSelectionField := lastSelection.(*schema.FieldSelection)
+			lastSelectionField.Arguments = append(lastSelectionField.Arguments, schema.Argument{
+				Name:  k,
+				Value: &schema.Variable{Name: k},
+			})
+		}
+		upstreamOp.Vars = vars
+		lastSelection.SetSelections(upstreamQueryDoc, request.Selection.Selections)
+		load.selections = append(load.selections, upstreamQueryDoc)
+
+		if upstreamOp.Type != schema.Subscription {
+			return func() (reflect.Value, error) {
+
+				if !loads.started {
+					loads.started = true
+					for _, load := range loads.loads {
+						load.merged = mergeQueryDocs(load.selections)
+						// request.RunAsync handles limiting concurrency..
+						request.RunAsync(load.resolution)()
+					}
 				}
-				vars = append(vars, &c)
 
-				lastSelectionField := lastSelection.(*schema.FieldSelection)
-				lastSelectionField.Arguments = append(lastSelectionField.Arguments, schema.Argument{
-					Name:  k,
-					Value: &schema.Variable{Name: k},
-				})
+				// we call this to make sure we wait for the async resolution to complete
+				load.resolution()
+				return getUpstreamValue(request.Context, load.response, load.merged, selectionPath)
 			}
-			upstreamOp.Vars = vars
+		} else {
+			return func() (reflect.Value, error) {
 
-			lastSelection.SetSelections(upstreamQueryDoc, request.Selection.Selections)
-			query := upstreamQueryDoc.String()
-
-			ggraphqlRequest := &graphql.Request{
-				Context:   request.ExecutionContext.GetContext(),
-				Query:     query,
-				Variables: request.Args,
-			}
-			if upstreamOp.Type != schema.Subscription {
-
-				result := upstream.client(ggraphqlRequest)
-
-				v, err := getUpstreamValue(request.Context, result, selectionAliases)
-				if err != nil {
-					log.Println("query failed: ", query)
+				if !loads.started {
+					loads.started = true
+					for _, load := range loads.loads {
+						load.merged = mergeQueryDocs(load.selections)
+					}
 				}
-				return v, err
 
-			} else {
+				ggraphqlRequest := &graphql.Request{
+					Context:   load.ctx,
+					Query:     load.merged.String(),
+					Variables: load.variables,
+				}
+
 				stream := upstream.subscriptionClient(ggraphqlRequest)
 				ctx := request.ExecutionContext
 				go func() {
@@ -257,7 +283,7 @@ func mount(c actionRunner, field schema.Field, upstream *upstreamServer, upstrea
 							}
 							// We got data from the upstream...
 
-							v, err := getUpstreamValue(request.Context, result, selectionAliases)
+							v, err := getUpstreamValue(request.Context, result, upstreamQueryDoc, selectionPath)
 							if err != nil {
 								ctx.FireSubscriptionClose()
 								return
@@ -268,7 +294,6 @@ func mount(c actionRunner, field schema.Field, upstream *upstreamServer, upstrea
 				}()
 				return reflect.Value{}, nil
 			}
-
 		}
 	})
 	return nil
@@ -290,7 +315,7 @@ func (u *upstreamServer) ToUpstreamType(t schema.Type) schema.Type {
 	return t
 }
 
-func getUpstreamValue(ctx context.Context, result *graphql.Response, selectionAliases []string) (reflect.Value, error) {
+func getUpstreamValue(ctx context.Context, result *graphql.Response, doc *schema.QueryDocument, selectionPath []schema.Selection) (reflect.Value, error) {
 	if len(result.Errors) > 0 {
 		return reflect.Value{}, result.Error()
 	}
@@ -300,13 +325,16 @@ func getUpstreamValue(ctx context.Context, result *graphql.Response, selectionAl
 	if err != nil {
 		return reflect.Value{}, err
 	}
-
 	var v interface{} = data
-	for _, alias := range selectionAliases {
-		if m, ok := v.(map[string]interface{}); ok {
-			v = m[alias]
-		} else {
-			return reflect.Value{}, errors.Errorf("expected json field not found: " + strings.Join(selectionAliases, "."))
+
+	for _, sel := range selectionPath {
+		switch sel := sel.(type) {
+		case *schema.FieldSelection:
+			if m, ok := v.(map[string]interface{}); ok {
+				v = m[sel.Extension.(string)]
+			} else {
+				return reflect.Value{}, errors.Errorf("expected upstream field not found: %s", sel.Name)
+			}
 		}
 	}
 
@@ -316,4 +344,5 @@ func getUpstreamValue(ctx context.Context, result *graphql.Response, selectionAl
 		Value:   reflect.ValueOf(v),
 		Context: context.WithValue(ctx, upstreamDomResolverInstance, true),
 	}), nil
+	//return reflect.ValueOf(v), nil
 }

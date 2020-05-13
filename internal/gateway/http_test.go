@@ -2,6 +2,7 @@ package gateway_test
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"sync"
@@ -16,7 +17,8 @@ import (
 )
 
 type testHandler struct {
-	lastRequest *http.Request
+	requestCounter int64
+	lastRequest    *http.Request
 	*httpgql.Handler
 	mu sync.Mutex
 }
@@ -24,6 +26,7 @@ type testHandler struct {
 func (h *testHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.mu.Lock()
 	h.lastRequest = r
+	h.requestCounter++
 	h.mu.Unlock()
 	h.Handler.ServeHTTP(w, r)
 }
@@ -31,6 +34,13 @@ func (h *testHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (h *testHandler) GetLastRequest() (r *http.Request) {
 	h.mu.Lock()
 	r = h.lastRequest
+	h.mu.Unlock()
+	return
+}
+
+func (h *testHandler) GetRequestCounter() (r int64) {
+	h.mu.Lock()
+	r = h.requestCounter
 	h.mu.Unlock()
 	return
 }
@@ -43,29 +53,9 @@ func TestProxyHeaders(t *testing.T) {
 	charactersServer := httptest.NewServer(h)
 	defer charactersServer.Close()
 
-	gw, err := gateway.New(gateway.Config{
-		Upstreams: map[string]gateway.UpstreamWrapper{
-			"characters": {
-				Upstream: &gateway.GraphQLUpstream{
-					URL:    charactersServer.URL,
-					Suffix: "_t1",
-				},
-			},
-		},
-		Types: []gateway.TypeConfig{
-			{
-				Name: `Query`,
-				Actions: []gateway.ActionWrapper{
-					{
-						Action: &gateway.Mount{
-							Upstream: "characters",
-							Query:    `query {}`,
-						},
-					},
-				},
-			},
-		},
-	})
+	config := createCharactersPassthroughConfig()
+	config.Upstreams["characters"].Upstream.(*gateway.GraphQLUpstream).URL = charactersServer.URL
+	gw, err := gateway.New(config)
 	require.NoError(t, err)
 	gatewayServer := httptest.NewServer(gateway.CreateHttpHandler(gw.ServeGraphQLStream))
 	defer gatewayServer.Close()
@@ -94,4 +84,62 @@ query  {
 
 	value = request.Header.Get("X-Forwarded-Proto")
 	assert.Equal(t, `http`, value)
+}
+
+func createCharactersPassthroughConfig() gateway.Config {
+	return gateway.Config{
+		Upstreams: map[string]gateway.UpstreamWrapper{
+			"characters": {
+				Upstream: &gateway.GraphQLUpstream{
+					Suffix: "_t1",
+				},
+			},
+		},
+		Types: []gateway.TypeConfig{
+			{
+				Name: `Query`,
+				Actions: []gateway.ActionWrapper{
+					{
+						Action: &gateway.Mount{
+							Upstream: "characters",
+							Query:    `query {}`,
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func TestDataLoader(t *testing.T) {
+
+	charactersEngine := characters.New()
+
+	h := &testHandler{Handler: &httpgql.Handler{ServeGraphQLStream: charactersEngine.ServeGraphQLStream}}
+	charactersServer := httptest.NewServer(h)
+	defer charactersServer.Close()
+
+	config := createCharactersPassthroughConfig()
+	config.Upstreams["characters"].Upstream.(*gateway.GraphQLUpstream).URL = charactersServer.URL
+	gw, err := gateway.New(config)
+	require.NoError(t, err)
+
+	// The first request is an introspection query.
+	assert.Equal(t, int64(1), h.GetRequestCounter())
+
+	actual := json.RawMessage{}
+	graphql.Exec(gw.ServeGraphQL, context.Background(), &actual, `
+query  {
+    search(name:"Rukia") {
+      id
+    }
+    characters {
+      id
+    }
+}`)
+	// Verify that both those root selection get aggregated into a single
+	// query to the upstream server.
+	assert.Equal(t, `{"search":{"id":"1"},"characters":[{"id":"1"},{"id":"2"},{"id":"3"},{"id":"3"},{"id":"3"},{"id":"3"}]}`, string(actual))
+	assert.Equal(t, int64(2), h.GetRequestCounter())
+
 }

@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"os"
@@ -38,6 +39,7 @@ type Config struct {
 }
 
 type upstreamServer struct {
+	id                         string
 	client                     func(request *graphql.Request) *graphql.Response
 	subscriptionClient         func(request *graphql.Request) graphql.ResponseStream
 	originalNames              map[string]schema.NamedType
@@ -60,8 +62,8 @@ func New(config Config) (*graphql.Engine, error) {
 	}
 
 	fieldResolver := resolvers.TypeAndFieldResolver{}
-	root := graphql.New()
-	err := root.Schema.Parse(`
+	gateway := graphql.New()
+	err := gateway.Schema.Parse(`
 schema {
     query: Query
     mutation: Mutation
@@ -72,8 +74,16 @@ type Mutation {}
 type Subscription {}
 `)
 
+	// Use the OnRequestHook to add UpstreamLoads to the query context
+	gateway.OnRequestHook = func(r *graphql.Request, doc *schema.QueryDocument, op *schema.Operation) error {
+		r.Context = context.WithValue(r.GetContext(), UpstreamLoadsContextKey, UpstreamLoads{
+			loads: map[string]*UpstreamLoad{},
+		})
+		return nil
+	}
+
 	// To support configuring the names of the root types.
-	root.Schema.RenameTypes(func(n string) string {
+	gateway.Schema.RenameTypes(func(n string) string {
 		switch n {
 		case "Query":
 			if config.Schema.Query != "" {
@@ -94,18 +104,19 @@ type Subscription {}
 	if err != nil {
 		panic(err)
 	}
-	root.Resolver = resolvers.List(root.Resolver, upstreamDomResolverInstance, fieldResolver)
+	gateway.Resolver = resolvers.List(gateway.Resolver, upstreamDomResolverInstance, fieldResolver)
 
 	upstreams := map[string]*upstreamServer{}
 
-	for eid, upstream := range config.Upstreams {
+	for upstreamId, upstream := range config.Upstreams {
 		switch upstream := upstream.Upstream.(type) {
 		case *GraphQLUpstream:
 			c := httpgql.NewClient(upstream.URL)
 			c.HTTPClient = &http.Client{
 				Transport: proxyTransport(0),
 			}
-			upstreams[eid] = &upstreamServer{
+			upstreams[upstreamId] = &upstreamServer{
+				id:                         upstreamId,
 				client:                     c.ServeGraphQL,
 				subscriptionClient:         c.ServeGraphQLStream,
 				originalNames:              map[string]schema.NamedType{},
@@ -140,12 +151,12 @@ type Subscription {}
 	}
 
 	actionRunner := actionRunner{
-		Gateway:   root,
+		Gateway:   gateway,
 		Endpoints: upstreams,
 		Resolver:  fieldResolver,
 	}
 	for _, typeConfig := range config.Types {
-		object := root.Schema.Types[typeConfig.Name]
+		object := gateway.Schema.Types[typeConfig.Name]
 		if object == nil {
 			object = &schema.Object{Name: typeConfig.Name}
 		}
@@ -170,7 +181,7 @@ type Subscription {}
 			return nil, errors.Errorf("can only configure fields on OBJECT types: %s is a %s", typeConfig.Name, object.Kind())
 		}
 	}
-	return root, nil
+	return gateway, nil
 }
 
 func getSelectedFields(upstreamSchema *schema.Schema, q *schema.QueryDocument, op *schema.Operation) ([]exec.FieldSelection, error) {
