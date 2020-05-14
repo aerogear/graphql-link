@@ -1,8 +1,6 @@
 package gateway
 
 import (
-	"context"
-	"encoding/json"
 	"fmt"
 	"reflect"
 	"regexp"
@@ -45,17 +43,17 @@ var querySplitter = regexp.MustCompile(`[}\s]*$`)
 
 func mount(c actionRunner, field schema.Field, upstream *upstreamServer, upstreamQuery string) error {
 
-	upstreamQueryDoc := &schema.QueryDocument{}
-	qerr := upstreamQueryDoc.Parse(upstreamQuery)
+	upstreamDoc := &schema.QueryDocument{}
+	qerr := upstreamDoc.Parse(upstreamQuery)
 	if qerr != nil {
 		return qerr
 	}
-	if len(upstreamQueryDoc.Operations) != 1 {
+	if len(upstreamDoc.Operations) != 1 {
 		return qerrors.New("query document can only contain one operation")
 	}
-	upstreamOp := upstreamQueryDoc.Operations[0]
+	upstreamOp := upstreamDoc.Operations[0]
 
-	upstreamSelections, err := getSelectedFields(upstream.schema, upstreamQueryDoc, upstreamOp)
+	upstreamSelections, err := getSelectedFields(upstream.schema, upstreamDoc, upstreamOp)
 	if err != nil {
 		return err
 	}
@@ -151,26 +149,23 @@ func mount(c actionRunner, field schema.Field, upstream *upstreamServer, upstrea
 
 	c.Resolver.Set(c.Type.Name, field.Name, func(request *resolvers.ResolveRequest, _ resolvers.Resolution) resolvers.Resolution {
 
-		loads := request.Context.Value(UpstreamLoadsContextKey).(UpstreamLoads)
-		load := loads.loads[upstream.id]
+		dataLoaders := request.Context.Value(DataLoadersKey).(DataLoaders)
+		dataLoader := dataLoaders.loaders[upstream.id]
 
-		if load == nil {
-			load = &UpstreamLoad{
+		if dataLoader == nil {
+			dataLoader = &UpstreamDataLoader{
 				ctx:       request.Context,
 				upstream:  upstream,
 				variables: request.ExecutionContext.GetVars(),
 			}
-			if load.variables == nil {
-				load.variables = map[string]interface{}{}
+			if dataLoader.variables == nil {
+				dataLoader.variables = map[string]interface{}{}
 			}
-			loads.loads[upstream.id] = load
+			dataLoaders.loaders[upstream.id] = dataLoader
 		}
 
 		requestDoc := request.ExecutionContext.GetDocument()
 		requestOp := request.ExecutionContext.GetOperation()
-
-		upstreamQueryDoc := upstreamQueryDoc.DeepCopy()
-		upstreamOp := upstreamQueryDoc.Operations[0]
 
 		// We need to join the upstream query args configured on the gateway with the client query args to make
 		// a joined query.  Here is a kitchen sink example that can help you think of all the combination of ways
@@ -186,66 +181,48 @@ func mount(c actionRunner, field schema.Field, upstream *upstreamServer, upstrea
 		// upstream:  mysearch => ($text: String!) { search(name:$text) }"
 		// request :  { mysearch(text:"Rukia") { name { full } } }
 
-		// find the leaf selection the upstream query...
-		upstreamLeaf, upstreamLeafPath := getLeafAndResolveVars(upstreamQueryDoc, upstreamOp, requestDoc, request.Selection.Arguments)
-		upstreamLeaf.SetSelections(upstreamQueryDoc, request.Selection.Selections)
+		// We will be building up the joined query off a copy the stream query
+		joinedDoc := upstreamDoc.DeepCopy()
+		joinedOp := joinedDoc.Operations[0]
+		mountPoint, mountPointPath := getLeafAndResolveVars(joinedDoc, joinedOp, requestDoc, request.Selection.Arguments)
+		mountPoint.SetSelections(joinedDoc, request.Selection.Selections)
+		addMountPointArgs(joinedOp, mountPoint, request)
+		joinedOp.Vars = upstream.ToUpstreamInputValueList(requestOp.Vars)
+		joinedDoc.Fragments = requestDoc.Fragments
+		dataLoader.queryDocs = append(dataLoader.queryDocs, joinedDoc)
 
-		joinedOpVars := schema.InputValueList{}
-		for _, v := range requestOp.Vars {
-			c := *v
-			c.Type = upstream.ToUpstreamType(c.Type)
-			joinedOpVars = append(joinedOpVars, &c)
-		}
-
-		if upstreamLeaf, ok := upstreamLeaf.(*schema.FieldSelection); ok {
-			extraArgs := map[string]schema.Argument{}
-			for _, a := range request.Selection.Arguments {
-				extraArgs[a.Name] = a
-			}
-			for _, arg := range upstreamOp.Vars {
-				delete(extraArgs, strings.TrimPrefix(arg.Name, "$"))
-			}
-			for _, arg := range extraArgs {
-				upstreamLeaf.Arguments = append(upstreamLeaf.Arguments, arg)
-			}
-		}
-
-		upstreamOp.Vars = joinedOpVars
-		upstreamQueryDoc.Fragments = requestDoc.Fragments
-		load.selections = append(load.selections, upstreamQueryDoc)
-
-		if upstreamOp.Type != schema.Subscription {
+		if joinedOp.Type != schema.Subscription {
 			return func() (reflect.Value, error) {
 
-				if !loads.started {
-					loads.started = true
-					for _, load := range loads.loads {
-						load.merged = mergeQueryDocs(load.selections)
-						load.selections = nil
+				if !dataLoaders.started {
+					dataLoaders.started = true
+					for _, load := range dataLoaders.loaders {
+						load.mergedDoc = mergeQueryDocs(load.queryDocs)
+						load.queryDocs = nil
 						// request.RunAsync handles limiting concurrency..
 						request.RunAsync(load.resolution)()
 					}
 				}
 
 				// we call this to make sure we wait for the async resolution to complete
-				load.resolution()
-				return getUpstreamValue(request.Context, load.response, load.merged, upstreamLeafPath)
+				dataLoader.resolution()
+				return getUpstreamValue(request.Context, dataLoader.response, dataLoader.mergedDoc, mountPointPath)
 			}
 		} else {
 			return func() (reflect.Value, error) {
 
-				if !loads.started {
-					loads.started = true
-					for _, load := range loads.loads {
-						load.merged = mergeQueryDocs(load.selections)
-						load.selections = nil
+				if !dataLoaders.started {
+					dataLoaders.started = true
+					for _, load := range dataLoaders.loaders {
+						load.mergedDoc = mergeQueryDocs(load.queryDocs)
+						load.queryDocs = nil
 					}
 				}
 
 				gqlRequest := &graphql.Request{
-					Context:   load.ctx,
-					Query:     load.merged.String(),
-					Variables: load.variables,
+					Context:   dataLoader.ctx,
+					Query:     dataLoader.mergedDoc.String(),
+					Variables: dataLoader.variables,
 				}
 
 				stream := upstream.subscriptionClient(gqlRequest)
@@ -265,7 +242,7 @@ func mount(c actionRunner, field schema.Field, upstream *upstreamServer, upstrea
 							}
 							// We got data from the upstream...
 
-							v, err := getUpstreamValue(request.Context, result, upstreamQueryDoc, upstreamLeafPath)
+							v, err := getUpstreamValue(request.Context, result, joinedDoc, mountPointPath)
 							if err != nil {
 								ctx.FireSubscriptionEvent(v, err)
 								return
@@ -279,6 +256,21 @@ func mount(c actionRunner, field schema.Field, upstream *upstreamServer, upstrea
 		}
 	})
 	return nil
+}
+
+func addMountPointArgs(joinedOp *schema.Operation, mountPoint schema.Selection, request *resolvers.ResolveRequest) {
+	if mountPoint, ok := mountPoint.(*schema.FieldSelection); ok {
+		extraArgs := map[string]schema.Argument{}
+		for _, a := range request.Selection.Arguments {
+			extraArgs[a.Name] = a
+		}
+		for _, arg := range joinedOp.Vars {
+			delete(extraArgs, strings.TrimPrefix(arg.Name, "$"))
+		}
+		for _, arg := range extraArgs {
+			mountPoint.Arguments = append(mountPoint.Arguments, arg)
+		}
+	}
 }
 
 func getLeafAndResolveVars(doc *schema.QueryDocument, from schema.Selection, requestDoc *schema.QueryDocument, args schema.ArgumentList) (schema.Selection, []schema.Selection) {
@@ -316,56 +308,3 @@ func resolveVars(l schema.Literal, args schema.ArgumentList) schema.Literal {
 	return l
 }
 
-func (u *upstreamServer) ToUpstreamType(t schema.Type) schema.Type {
-	switch t := t.(type) {
-	case *schema.NonNull:
-		return &schema.NonNull{OfType: u.ToUpstreamType(t.OfType)}
-	case *schema.List:
-		return &schema.List{OfType: u.ToUpstreamType(t.OfType)}
-	case *schema.TypeName:
-		name := t.Name
-		name = u.gatewayToUpstreamTypeNames[name]
-		return &schema.TypeName{
-			Name: name,
-		}
-	case schema.NamedType:
-		name := t.TypeName()
-		name = u.gatewayToUpstreamTypeNames[name]
-		return &schema.TypeName{
-			Name: name,
-		}
-	}
-	return t
-}
-
-func getUpstreamValue(ctx context.Context, result *graphql.Response, doc *schema.QueryDocument, selectionPath []schema.Selection) (reflect.Value, error) {
-	if len(result.Errors) > 0 {
-		return reflect.Value{}, result.Error()
-	}
-
-	data := map[string]interface{}{}
-	err := json.Unmarshal(result.Data, &data)
-	if err != nil {
-		return reflect.Value{}, err
-	}
-	var v interface{} = data
-
-	for _, sel := range selectionPath {
-		switch sel := sel.(type) {
-		case *schema.FieldSelection:
-			if m, ok := v.(map[string]interface{}); ok {
-				v = m[sel.Extension.(string)]
-			} else {
-				return reflect.Value{}, errors.Errorf("expected upstream field not found: %s", sel.Name)
-			}
-		}
-	}
-
-	// This enables the upstreamDomResolverInstance for all child fields of this result.
-	// needed to property handle field aliases.
-	return reflect.ValueOf(resolvers.ValueWithContext{
-		Value:   reflect.ValueOf(v),
-		Context: context.WithValue(ctx, upstreamDomResolverInstance, true),
-	}), nil
-	//return reflect.ValueOf(v), nil
-}

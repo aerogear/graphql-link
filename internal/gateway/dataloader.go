@@ -11,21 +11,29 @@ import (
 	"github.com/chirino/graphql/schema"
 )
 
-type UpstreamLoad struct {
-	ctx        context.Context
-	upstream   *upstreamServer
-	selections []*schema.QueryDocument
-	variables  map[string]interface{}
-	merged     *schema.QueryDocument
+type DataLoaders struct {
+	started bool
+	loaders map[string]*UpstreamDataLoader
+}
+
+type dataLoadersKey byte
+const DataLoadersKey = dataLoadersKey(0)
+
+type UpstreamDataLoader struct {
+	ctx       context.Context
+	upstream  *upstreamServer
+	queryDocs []*schema.QueryDocument
+	variables map[string]interface{}
+	mergedDoc *schema.QueryDocument
 
 	once     sync.Once
 	response *graphql.Response
 }
 
-func (load *UpstreamLoad) resolution() (value reflect.Value, err error) {
+func (load *UpstreamDataLoader) resolution() (value reflect.Value, err error) {
 	// concurrent call to Do will wait for the first call to finish..
 	load.once.Do(func() {
-		query := load.merged.String()
+		query := load.mergedDoc.String()
 		load.response = load.upstream.client(&graphql.Request{
 			Context:   load.ctx,
 			Query:     query,
@@ -137,11 +145,3 @@ func mergeQuerySelections(doc *schema.QueryDocument, from schema.SelectionList, 
 	}
 	return result
 }
-
-type UpstreamLoads struct {
-	started bool
-	loads   map[string]*UpstreamLoad
-}
-type UpstreamLoadsContextKeyType byte
-
-const UpstreamLoadsContextKey = UpstreamLoadsContextKeyType(0)

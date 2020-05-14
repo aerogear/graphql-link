@@ -38,16 +38,6 @@ type Config struct {
 	Types                  []TypeConfig `json:"types"`
 }
 
-type upstreamServer struct {
-	id                         string
-	client                     func(request *graphql.Request) *graphql.Response
-	subscriptionClient         func(request *graphql.Request) graphql.ResponseStream
-	originalNames              map[string]schema.NamedType
-	gatewayToUpstreamTypeNames map[string]string
-	schema                     *schema.Schema
-	info                       GraphQLUpstream
-}
-
 var validGraphQLIdentifierRegex = regexp.MustCompile(`^[A-Za-z_][A-Za-z_0-9]*$`)
 
 func New(config Config) (*graphql.Engine, error) {
@@ -76,8 +66,8 @@ type Subscription {}
 
 	// Use the OnRequestHook to add UpstreamLoads to the query context
 	gateway.OnRequestHook = func(r *graphql.Request, doc *schema.QueryDocument, op *schema.Operation) error {
-		r.Context = context.WithValue(r.GetContext(), UpstreamLoadsContextKey, UpstreamLoads{
-			loads: map[string]*UpstreamLoad{},
+		r.Context = context.WithValue(r.GetContext(), DataLoadersKey, DataLoaders{
+			loaders: map[string]*UpstreamDataLoader{},
 		})
 		return nil
 	}
