@@ -25,9 +25,10 @@ type UpstreamLoad struct {
 func (load *UpstreamLoad) resolution() (value reflect.Value, err error) {
 	// concurrent call to Do will wait for the first call to finish..
 	load.once.Do(func() {
+		query := load.merged.String()
 		load.response = load.upstream.client(&graphql.Request{
 			Context:   load.ctx,
-			Query:     load.merged.String(),
+			Query:     query,
 			Variables: load.variables,
 		})
 	})
@@ -45,6 +46,12 @@ func mergeQueryDocs(docs []*schema.QueryDocument) *schema.QueryDocument {
 			operations[fromOp.Type] = fromOp
 			toDoc.Operations = append(toDoc.Operations, fromOp)
 		} else {
+			for _, v := range fromOp.Vars {
+				value := toOp.Vars.Get(v.Name)
+				if value == nil {
+					toOp.Vars = append(toOp.Vars, v)
+				}
+			}
 			toOp.Selections = append(toOp.Selections, fromOp.Selections...)
 			for _, fragment := range d.Fragments {
 				if toDoc.Fragments.Get(fragment.Name) == nil {
@@ -74,6 +81,7 @@ func mergeQuerySelections(doc *schema.QueryDocument, from schema.SelectionList, 
 			buf.Reset()
 			buf.WriteString(original.Name)
 			original.Arguments.WriteTo(buf)
+			original.Directives.WriteTo(buf)
 			key := buf.String()
 
 			if existing, ok := idx[key]; !ok {
