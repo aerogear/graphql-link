@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 
 	"github.com/chirino/graphql"
@@ -70,6 +71,26 @@ type Subscription {}
 			loaders: map[string]*UpstreamDataLoader{},
 		})
 		return nil
+	}
+	defaultTryCast := gateway.TryCast
+	gateway.TryCast = func(value reflect.Value, toType string) (reflect.Value, bool) {
+
+		// First try the default cast strategy...
+		cast, ok := defaultTryCast(value, toType)
+		if ok {
+			return cast, ok
+		}
+
+		// fallback to using "__typename" data
+		dv := resolvers.Dereference(value)
+		if m, ok := dv.Interface().(map[string]interface{}); ok {
+			if tn, ok := m["t"]; ok {
+				if tn == toType {
+					return value, true
+				}
+			}
+		}
+		return value, false
 	}
 
 	// To support configuring the names of the root types.

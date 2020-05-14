@@ -185,6 +185,8 @@ func mount(c actionRunner, field schema.Field, upstream *upstreamServer, upstrea
 		joinedDoc := upstreamDoc.DeepCopy()
 		joinedOp := joinedDoc.Operations[0]
 		mountPoint, mountPointPath := getLeafAndResolveVars(joinedDoc, joinedOp, requestDoc, request.Selection.Arguments)
+		request.Selection.Extension = mountPoint
+
 		mountPoint.SetSelections(joinedDoc, request.Selection.Selections)
 		addMountPointArgs(joinedOp, mountPoint, request)
 		joinedOp.Vars = upstream.ToUpstreamInputValueList(requestOp.Vars)
@@ -197,10 +199,16 @@ func mount(c actionRunner, field schema.Field, upstream *upstreamServer, upstrea
 				if !dataLoaders.started {
 					dataLoaders.started = true
 					for _, load := range dataLoaders.loaders {
-						load.mergedDoc = mergeQueryDocs(load.queryDocs)
-						load.queryDocs = nil
-						// request.RunAsync handles limiting concurrency..
-						request.RunAsync(load.resolution)()
+						if len(load.queryDocs) > 0 {
+
+							load.mergedDoc = mergeQueryDocs(load.queryDocs) //.DeepCopy()
+							operation := load.mergedDoc.Operations[0]
+							operation.Selections = addTypeNames(operation.Selections)
+							load.queryDocs = nil
+
+							// request.RunAsync handles limiting concurrency..
+							request.RunAsync(load.resolution)()
+						}
 					}
 				}
 
@@ -258,6 +266,38 @@ func mount(c actionRunner, field schema.Field, upstream *upstreamServer, upstrea
 	return nil
 }
 
+func addTypeNames(from schema.SelectionList) schema.SelectionList {
+	// if true {}
+	needTypename := false
+	haveTypename := false
+	for _, s := range from {
+		switch s := s.(type) {
+		case *schema.FieldSelection:
+			if s.Name == "__typename" {
+				haveTypename = true
+			}
+			if len(s.Selections) == 0 {
+				needTypename = true
+			} else {
+				s.Selections = addTypeNames(s.Selections)
+			}
+		case *schema.InlineFragment:
+			needTypename = true
+			s.Selections = addTypeNames(s.Selections)
+		case *schema.FragmentSpread:
+			needTypename = true
+			//s.Selections = enrich(s.Selections)
+		}
+	}
+	if needTypename && !haveTypename {
+		from = append(from, &schema.FieldSelection{
+			Alias: "t",
+			Name:  "__typename",
+		})
+	}
+	return from
+}
+
 func addMountPointArgs(joinedOp *schema.Operation, mountPoint schema.Selection, request *resolvers.ResolveRequest) {
 	if mountPoint, ok := mountPoint.(*schema.FieldSelection); ok {
 		extraArgs := map[string]schema.Argument{}
@@ -307,4 +347,3 @@ func resolveVars(l schema.Literal, args schema.ArgumentList) schema.Literal {
 	}
 	return l
 }
-

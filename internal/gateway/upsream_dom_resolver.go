@@ -25,12 +25,18 @@ func (r upstreamDomResolver) Resolve(request *resolvers.ResolveRequest, next res
 	}
 
 	return func() (reflect.Value, error) {
-		// In case we need to debug...
+		//In case we need to debug...
 		//json, _ := json.Marshal(parentValue.Interface())
 		//fmt.Println(string(json))
 
 		selection := request.Selection
-		field := reflect.ValueOf(selection.Extension)
+		field := parentValue
+		if selection.Extension != nil {
+			field = reflect.ValueOf(selection.Extension)
+		} else {
+			// TODO: try to eliminate this case...
+			field = reflect.ValueOf(selection.Alias)
+		}
 		value := parentValue.MapIndex(field)
 		if !value.IsValid() {
 			return reflect.Zero(parentValue.Type().Elem()), nil

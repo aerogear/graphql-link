@@ -21,7 +21,6 @@ type upstreamServer struct {
 	info                       GraphQLUpstream
 }
 
-
 func (u *upstreamServer) ToUpstreamInputValueList(from schema.InputValueList) schema.InputValueList {
 	joinedOpVars := schema.InputValueList{}
 	for _, v := range from {

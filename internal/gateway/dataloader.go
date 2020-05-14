@@ -17,6 +17,7 @@ type DataLoaders struct {
 }
 
 type dataLoadersKey byte
+
 const DataLoadersKey = dataLoadersKey(0)
 
 type UpstreamDataLoader struct {
@@ -61,24 +62,32 @@ func mergeQueryDocs(docs []*schema.QueryDocument) *schema.QueryDocument {
 				}
 			}
 			toOp.Selections = append(toOp.Selections, fromOp.Selections...)
-			for _, fragment := range d.Fragments {
-				if toDoc.Fragments.Get(fragment.Name) == nil {
-					toDoc.Fragments = append(toDoc.Fragments, fragment)
-				}
+		}
+		for _, fragment := range d.Fragments {
+			if toDoc.Fragments.Get(fragment.Name) == nil {
+				toDoc.Fragments = append(toDoc.Fragments, fragment)
 			}
 		}
 	}
 
+	// Only try to de-dup query fields, since mutations typically have side effects.
+	dedup := toDoc.Operations[0].Type == schema.Query
 	var counter int32 = 0
-	for _, operation := range operations {
-		operation.Selections = mergeQuerySelections(toDoc, operation.Selections, &counter)
+	for _, operation := range toDoc.Operations {
+		operation.Selections = mergeQuerySelections(toDoc, operation.Selections, &counter, dedup)
 	}
-
+	for i, fragment := range toDoc.Fragments {
+		copy := *fragment
+		copy.Selections = mergeQuerySelections(toDoc, fragment.Selections, &counter, dedup)
+		toDoc.Fragments[i] = &copy
+	}
 	return toDoc
 }
 
-func mergeQuerySelections(doc *schema.QueryDocument, from schema.SelectionList, counter *int32) schema.SelectionList {
-
+func mergeQuerySelections(doc *schema.QueryDocument, from schema.SelectionList, counter *int32, dedup bool) schema.SelectionList {
+	if from == nil {
+		return nil
+	}
 	buf := &bytes.Buffer{}
 	idx := map[string]schema.Selection{}
 	result := schema.SelectionList{}
@@ -92,13 +101,22 @@ func mergeQuerySelections(doc *schema.QueryDocument, from schema.SelectionList, 
 			original.Directives.WriteTo(buf)
 			key := buf.String()
 
-			if existing, ok := idx[key]; !ok {
+			if existing, ok := idx[key]; !dedup || !ok {
+
 				copy := *original
 				result = append(result, &copy)
 				idx[key] = &copy
-				copy.Alias = fmt.Sprintf("f%x", *counter)
+
+				if original.Name == "__typename" {
+					copy.Alias = fmt.Sprintf("t")
+				} else {
+					copy.Alias = fmt.Sprintf("f%x", *counter)
+				}
+				copy.Selections = mergeQuerySelections(doc, copy.Selections, counter, dedup)
+
 				original.Extension = copy.Alias
 				*counter++
+
 			} else {
 				// Collapse dup field
 				existing := existing.(*schema.FieldSelection)
@@ -114,11 +132,13 @@ func mergeQuerySelections(doc *schema.QueryDocument, from schema.SelectionList, 
 			key := buf.String()
 
 			if existing, ok := idx[key]; !ok {
-				result = append(result, original)
-				idx[key] = original
+				copy := *original
+				result = append(result, &copy)
+				idx[key] = &copy
+				copy.Selections = mergeQuerySelections(doc, copy.Selections, counter, dedup)
 			} else {
 				existing := existing.(*schema.InlineFragment)
-				existing.Selections = mergeQuerySelections(doc, original.Selections, counter)
+				existing.Selections = mergeQuerySelections(doc, original.Selections, counter, dedup)
 			}
 
 		case *schema.FragmentSpread:
@@ -127,20 +147,10 @@ func mergeQuerySelections(doc *schema.QueryDocument, from schema.SelectionList, 
 			buf.WriteString("...")
 			buf.WriteString(original.Name)
 			key := buf.String()
-
 			if _, ok := idx[key]; !ok {
 				result = append(result, original)
 				idx[key] = original
 			}
-		}
-	}
-
-	for _, sel := range result {
-		switch sel := sel.(type) {
-		case *schema.FieldSelection:
-			sel.Selections = mergeQuerySelections(doc, sel.Selections, counter)
-		case *schema.InlineFragment:
-			sel.Selections = mergeQuerySelections(doc, sel.Selections, counter)
 		}
 	}
 	return result
