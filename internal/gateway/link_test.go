@@ -1,7 +1,6 @@
 package gateway_test
 
 import (
-	"encoding/json"
 	"testing"
 
 	"github.com/chirino/graphql"
@@ -30,11 +29,10 @@ func TestLink(t *testing.T) {
 `,
 		func(gateway, characters *httpgql.Client) {
 			res := gateway.ServeGraphQL(&graphql.Request{
-				Variables: json.RawMessage(`{"episode":"JEDI", "withoutFriends": true, "withFriends": false}`),
 				Query: `
 {
 	rukia: search(name:"Rukia") {
-		bf { name{ full } }
+		bf { name { full } }
 	}
 }
 `,
