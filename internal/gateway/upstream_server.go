@@ -18,6 +18,7 @@ type upstreamServer struct {
 	originalNames              map[string]schema.NamedType
 	gatewayToUpstreamTypeNames map[string]string
 	schema                     *schema.Schema
+	originalSchema             *schema.Schema
 	info                       GraphQLUpstream
 }
 

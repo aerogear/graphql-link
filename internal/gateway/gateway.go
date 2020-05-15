@@ -141,21 +141,30 @@ type Subscription {}
 	}
 
 	for eid, upstream := range upstreams {
-		s, err := loadEndpointSchema(config, eid, upstream)
+		original, err := loadEndpointSchema(config, eid, upstream)
+
+		// TODO: implement schema.DeepCopy()
+		merged := schema.New()
+		err = merged.Parse(original.String())
+		if err != nil {
+			panic(err)
+		}
+
 		if err != nil {
 			return nil, err
 		}
 
-		for k, v := range s.Types {
+		for k, v := range merged.Types {
 			upstream.originalNames[k] = v
 		}
 		if upstream.info.Prefix != "" {
-			s.RenameTypes(func(x string) string { return upstream.info.Prefix + x })
+			merged.RenameTypes(func(x string) string { return upstream.info.Prefix + x })
 		}
 		if upstream.info.Suffix != "" {
-			s.RenameTypes(func(x string) string { return x + upstream.info.Suffix })
+			merged.RenameTypes(func(x string) string { return x + upstream.info.Suffix })
 		}
-		upstreams[eid].schema = s
+		upstreams[eid].schema = merged
+		upstreams[eid].originalSchema = original
 		for n, t := range upstream.originalNames {
 			upstream.gatewayToUpstreamTypeNames[t.TypeName()] = n
 		}
