@@ -212,7 +212,10 @@ func TestComplexQuery(t *testing.T) {
 				Query:     starwars_characters.ComplexStarWarsCharacterQuery,
 			})
 			require.NoError(t, res.Error())
-			assert.JSONEq(t, starwars_characters.ComplexStarWarsCharacterQueryResult, string(res.Data))
+
+			actual, err := json.MarshalIndent(res.Data, "", "  ")
+			require.NoError(t, err)
+			assert.Equal(t, starwars_characters.ComplexStarWarsCharacterQueryResult, string(actual))
 		})
 
 }

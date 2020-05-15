@@ -470,15 +470,7 @@ const ComplexStarWarsCharacterQueryResult = `{
     "name": "Droid",
     "fields": [
       {
-        "name": "id",
-        "args": [],
-        "type": {
-          "name": null,
-          "kind": "NON_NULL"
-        }
-      },
-      {
-        "name": "name",
+        "name": "appearsIn",
         "args": [],
         "type": {
           "name": null,
@@ -517,7 +509,15 @@ const ComplexStarWarsCharacterQueryResult = `{
         }
       },
       {
-        "name": "appearsIn",
+        "name": "id",
+        "args": [],
+        "type": {
+          "name": null,
+          "kind": "NON_NULL"
+        }
+      },
+      {
+        "name": "name",
         "args": [],
         "type": {
           "name": null,
