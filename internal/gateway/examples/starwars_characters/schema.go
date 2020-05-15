@@ -3,6 +3,12 @@ package starwars_characters
 var Schema = `
 	schema {
 		query: Query
+		mutation: Mutation
+		subscription: Subscription
+	}
+	type Mutation {
+	}
+	type Subscription{
 	}
 	"The query type, represents the entry points related to characters in the Starwars universe."
 	type Query {
