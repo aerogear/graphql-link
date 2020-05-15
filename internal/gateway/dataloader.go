@@ -72,85 +72,111 @@ func mergeQueryDocs(docs []*schema.QueryDocument) *schema.QueryDocument {
 
 	// Only try to de-dup query fields, since mutations typically have side effects.
 	dedup := toDoc.Operations[0].Type == schema.Query
-	var counter int32 = 0
+	path := &bytes.Buffer{}
+	cache := map[string]schema.Selection{}
 	for _, operation := range toDoc.Operations {
-		operation.Selections = mergeQuerySelections(toDoc, operation.Selections, &counter, dedup)
+		var counter int32 = 0
+		operation.Selections = mergeQuerySelections(toDoc, operation.Selections, 'f', &counter, dedup, path, cache)
 	}
+
+	var counter int32 = 0
 	for i, fragment := range toDoc.Fragments {
 		copy := *fragment
-		copy.Selections = mergeQuerySelections(toDoc, fragment.Selections, &counter, dedup)
+		copy.Selections = mergeQuerySelections(toDoc, fragment.Selections, 'F', &counter, dedup, path, map[string]schema.Selection{})
 		toDoc.Fragments[i] = &copy
 	}
 	return toDoc
 }
 
-func mergeQuerySelections(doc *schema.QueryDocument, from schema.SelectionList, counter *int32, dedup bool) schema.SelectionList {
+func mergeQuerySelections(doc *schema.QueryDocument, from schema.SelectionList, fieldPrefix rune, counter *int32, dedup bool, path *bytes.Buffer, idx map[string]schema.Selection) schema.SelectionList {
 	if from == nil {
 		return nil
 	}
-	buf := &bytes.Buffer{}
-	idx := map[string]schema.Selection{}
 	result := schema.SelectionList{}
 
 	for _, sel := range from {
 		switch original := sel.(type) {
 		case *schema.FieldSelection:
-			buf.Reset()
-			buf.WriteString(original.Name)
-			original.Arguments.WriteTo(buf)
-			original.Directives.WriteTo(buf)
-			key := buf.String()
+			resetPosition := path.Len()
+			path.WriteRune('/')
+			path.WriteString(original.Name)
+			original.Arguments.WriteTo(path)
+			original.Directives.WriteTo(path)
 
-			if existing, ok := idx[key]; !dedup || !ok {
+			if dedup {
+				key := path.String()
+				if idx[key] == nil {
 
-				copy := *original
-				result = append(result, &copy)
-				idx[key] = &copy
+					merged := *original
+					idx[key] = &merged
 
-				if original.Name == "__typename" {
-					copy.Alias = fmt.Sprintf("t")
+					if original.Name == "__typename" {
+						merged.Alias = fmt.Sprintf("t")
+					} else {
+						merged.Alias = fmt.Sprintf("%c%x", fieldPrefix, *counter)
+						*counter++
+					}
+					original.Extension = merged.Alias
+
+					nestedCounter := int32(0)
+					merged.Extension = &nestedCounter
+					merged.Selections = mergeQuerySelections(doc, merged.Selections, 'f', &nestedCounter, dedup, path, idx)
+					result = append(result, &merged)
+
 				} else {
-					copy.Alias = fmt.Sprintf("f%x", *counter)
+					// Collapse dup field
+					merged := idx[key].(*schema.FieldSelection)
+					original.Extension = merged.Alias
+					nestedCounter := merged.Extension.(*int32)
+					selection := mergeQuerySelections(doc, original.Selections, 'f', nestedCounter, dedup, path, idx)
+					merged.Selections = append(merged.Selections, selection...)
 				}
-				copy.Selections = mergeQuerySelections(doc, copy.Selections, counter, dedup)
-
-				original.Extension = copy.Alias
-				*counter++
-
 			} else {
-				// Collapse dup field
-				existing := existing.(*schema.FieldSelection)
-				original.Extension = existing.Alias
-				existing.Selections = append(existing.Selections, original.Selections...)
+				merged := *original
+				if merged.Name == "__typename" {
+					merged.Alias = fmt.Sprintf("t")
+				} else {
+					merged.Alias = fmt.Sprintf("%c%x", fieldPrefix, *counter)
+					*counter++
+				}
+				original.Extension = merged.Alias
+				nestedCounter := int32(0)
+				merged.Selections = mergeQuerySelections(doc, merged.Selections, 'f', &nestedCounter, dedup, path, idx)
+				result = append(result, &merged)
 			}
+			path.Truncate(resetPosition) // reset it..
 
 		case *schema.InlineFragment:
 
-			buf.Reset()
-			buf.WriteString("... on ")
-			original.On.WriteTo(buf)
-			key := buf.String()
+			resetPosition := path.Len()
+			path.WriteRune('/')
+			path.WriteString("... on ")
+			original.On.WriteTo(path)
+			key := path.String()
 
 			if existing, ok := idx[key]; !ok {
 				copy := *original
 				result = append(result, &copy)
 				idx[key] = &copy
-				copy.Selections = mergeQuerySelections(doc, copy.Selections, counter, dedup)
+				copy.Selections = mergeQuerySelections(doc, copy.Selections, fieldPrefix, counter, dedup, path, idx)
 			} else {
 				existing := existing.(*schema.InlineFragment)
-				existing.Selections = mergeQuerySelections(doc, original.Selections, counter, dedup)
+				existing.Selections = mergeQuerySelections(doc, original.Selections, fieldPrefix, counter, dedup, path, idx)
 			}
+			path.Truncate(resetPosition) // reset it..
 
 		case *schema.FragmentSpread:
 
-			buf.Reset()
-			buf.WriteString("...")
-			buf.WriteString(original.Name)
-			key := buf.String()
+			resetPosition := path.Len()
+			path.WriteRune('/')
+			path.WriteString("...")
+			path.WriteString(original.Name)
+			key := path.String()
 			if _, ok := idx[key]; !ok {
 				result = append(result, original)
 				idx[key] = original
 			}
+			path.Truncate(resetPosition) // reset it..
 		}
 	}
 	return result

@@ -203,7 +203,7 @@ func mount(c actionRunner, field schema.Field, upstream *upstreamServer, upstrea
 
 							load.mergedDoc = mergeQueryDocs(load.queryDocs) //.DeepCopy()
 							operation := load.mergedDoc.Operations[0]
-							operation.Selections = addTypeNames(operation.Selections)
+							operation.Selections = addTypeNames(load.mergedDoc, operation.Selections)
 							load.queryDocs = nil
 
 							// request.RunAsync handles limiting concurrency..
@@ -266,29 +266,10 @@ func mount(c actionRunner, field schema.Field, upstream *upstreamServer, upstrea
 	return nil
 }
 
-func addTypeNames(from schema.SelectionList) schema.SelectionList {
-	// if true {}
+func addTypeNames(doc *schema.QueryDocument, from schema.SelectionList) schema.SelectionList {
 	needTypename := false
 	haveTypename := false
-	for _, s := range from {
-		switch s := s.(type) {
-		case *schema.FieldSelection:
-			if s.Name == "__typename" {
-				haveTypename = true
-			}
-			if len(s.Selections) == 0 {
-				needTypename = true
-			} else {
-				s.Selections = addTypeNames(s.Selections)
-			}
-		case *schema.InlineFragment:
-			needTypename = true
-			s.Selections = addTypeNames(s.Selections)
-		case *schema.FragmentSpread:
-			needTypename = true
-			//s.Selections = enrich(s.Selections)
-		}
-	}
+	checkIfTypeNamesAreNeeded(doc, from, &needTypename, &haveTypename)
 	if needTypename && !haveTypename {
 		from = append(from, &schema.FieldSelection{
 			Alias: "t",
@@ -296,6 +277,32 @@ func addTypeNames(from schema.SelectionList) schema.SelectionList {
 		})
 	}
 	return from
+}
+
+func checkIfTypeNamesAreNeeded(doc *schema.QueryDocument, from schema.SelectionList, needTypename, haveTypename *bool) {
+	for _, s := range from {
+		switch s := s.(type) {
+		case *schema.FieldSelection:
+			if s.Name == "__typename" {
+				*haveTypename = true
+			}
+			if len(s.Selections) != 0 {
+				s.Selections = addTypeNames(doc, s.Selections)
+			}
+		case *schema.InlineFragment:
+			*needTypename = true
+			checkIfTypeNamesAreNeeded(doc, s.Selections, needTypename, haveTypename)
+		case *schema.FragmentSpread:
+			frag := doc.Fragments.Get(s.Name)
+			if frag.Loc.Line != -1 { // to avoid looping in case of reference cycle.
+				line := frag.Loc.Line
+				frag.Loc.Line = -1
+				*needTypename = true
+				checkIfTypeNamesAreNeeded(doc, frag.Selections, needTypename, haveTypename)
+				frag.Loc.Line = line
+			}
+		}
+	}
 }
 
 func addMountPointArgs(joinedOp *schema.Operation, mountPoint schema.Selection, request *resolvers.ResolveRequest) {
