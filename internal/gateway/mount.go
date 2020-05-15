@@ -16,10 +16,11 @@ import (
 
 type Mount struct {
 	Action
-	Field       string `json:"field"`
-	Description string `json:"description"`
-	Upstream    string `json:"upstream"`
-	Query       string `json:"query"`
+	Field       string            `json:"field"`
+	Description string            `json:"description"`
+	Upstream    string            `json:"upstream"`
+	Query       string            `json:"query"`
+	Vars        map[string]string `json:"vars"`
 }
 
 func (c actionRunner) mount(action *Mount) error {
@@ -31,7 +32,8 @@ func (c actionRunner) mount(action *Mount) error {
 	if action.Description != "" {
 		field.Desc = schema.Description{Text: action.Description}
 	}
-	err := mount(c, field, endpoint, action.Query)
+
+	err := mount(c, field, endpoint, action.Query, action.Vars)
 	if err != nil {
 		return err
 	}
@@ -41,13 +43,42 @@ func (c actionRunner) mount(action *Mount) error {
 var emptySelectionRegex = regexp.MustCompile(`{\s*}\s*$`)
 var querySplitter = regexp.MustCompile(`[}\s]*$`)
 
-func mount(c actionRunner, field schema.Field, upstream *upstreamServer, upstreamQuery string) error {
+func parseSelectionPath(query string) (*schema.FieldSelection, error) {
+	doc := &schema.QueryDocument{}
+	qerr := doc.Parse("{" + query + "}")
+
+	if qerr != nil {
+		return nil, qerr
+	}
+	if len(doc.Operations) != 1 {
+		return nil, qerrors.New("query paths can only contain one operation")
+	}
+	op := doc.Operations[0]
+	selections := op.Selections
+	if len(selections) != 1 {
+		return nil, qerrors.New("query paths must contain one selection")
+	}
+	for len(selections) > 0 {
+		if len(selections) > 1 {
+			return nil, qerrors.New("query paths can only contain 1 nested selection")
+		}
+		if selection, ok := selections[0].(*schema.FieldSelection); ok {
+			selections = selection.Selections
+		} else {
+			return nil, qerrors.New("query paths can only use field selections")
+		}
+	}
+	return op.Selections[0].(*schema.FieldSelection), nil
+}
+
+func mount(c actionRunner, field schema.Field, upstream *upstreamServer, upstreamQuery string, enrichmentVars map[string]string) error {
 
 	upstreamDoc := &schema.QueryDocument{}
 	qerr := upstreamDoc.Parse(upstreamQuery)
 	if qerr != nil {
 		return qerr
 	}
+
 	if len(upstreamDoc.Operations) != 1 {
 		return qerrors.New("query document can only contain one operation")
 	}
@@ -93,7 +124,7 @@ func mount(c actionRunner, field schema.Field, upstream *upstreamServer, upstrea
 
 		for _, f := range fields {
 			upstreamQuery = fmt.Sprintf("%s { %s } %s", queryHead, f.Name, queryTail)
-			err = mount(c, *f, upstream, upstreamQuery)
+			err = mount(c, *f, upstream, upstreamQuery, enrichmentVars)
 			if err != nil {
 				return err
 			}
@@ -103,6 +134,17 @@ func mount(c actionRunner, field schema.Field, upstream *upstreamServer, upstrea
 	field.Type = upstreamResultType
 
 	field.Args = []*schema.InputValue{}
+
+	if len(enrichmentVars) > 0 {
+		m := map[string]*schema.FieldSelection{}
+		for n, v := range enrichmentVars {
+			m[n], err = parseSelectionPath(v)
+			if err != nil {
+				return errors.Wrapf(err, "invalid var '%s' query", n)
+			}
+		}
+		field.Extension = m
+	}
 
 	// query {} has no selections...
 	if len(upstreamSelections) > 0 {
@@ -149,7 +191,7 @@ func mount(c actionRunner, field schema.Field, upstream *upstreamServer, upstrea
 
 	c.Resolver.Set(c.Type.Name, field.Name, func(request *resolvers.ResolveRequest, _ resolvers.Resolution) resolvers.Resolution {
 
-		dataLoaders := request.Context.Value(DataLoadersKey).(DataLoaders)
+		dataLoaders := request.Context.Value(DataLoadersKey).(*DataLoaders)
 		dataLoader := dataLoaders.loaders[upstream.id]
 
 		if dataLoader == nil {
@@ -158,6 +200,7 @@ func mount(c actionRunner, field schema.Field, upstream *upstreamServer, upstrea
 				upstream:  upstream,
 				variables: request.ExecutionContext.GetVars(),
 			}
+
 			if dataLoader.variables == nil {
 				dataLoader.variables = map[string]interface{}{}
 			}
@@ -184,20 +227,50 @@ func mount(c actionRunner, field schema.Field, upstream *upstreamServer, upstrea
 		// We will be building up the joined query off a copy the stream query
 		joinedDoc := upstreamDoc.DeepCopy()
 		joinedOp := joinedDoc.Operations[0]
-		mountPoint, mountPointPath := getLeafAndResolveVars(joinedDoc, joinedOp, requestDoc, request.Selection.Arguments)
+
+		arguments := request.Selection.Arguments
+		if request.Selection.Schema.Field.Extension != nil {
+			vars := request.Selection.Schema.Field.Extension.(map[string]*schema.FieldSelection)
+			for name, x := range vars {
+
+				v := request.Parent.Interface()
+				for x != nil {
+					m := v.(map[string]interface{})
+					v = m[x.Extension.(string)]
+					if len(x.Selections) == 1 {
+						x = x.Selections[0].(*schema.FieldSelection)
+					} else {
+						x = nil
+					}
+				}
+
+				literal := schema.ToLiteral(v)
+				if literal != nil {
+					arguments = append(arguments, schema.Argument{
+						Name:  strings.TrimPrefix(name, "$"),
+						Value: literal,
+					})
+				} else {
+					panic("could not covert value to literal")
+				}
+			}
+		}
+
+		mountPoint, mountPointPath := getLeafAndResolveVars(joinedDoc, joinedOp, requestDoc, arguments)
 		request.Selection.Extension = mountPoint
 
 		mountPoint.SetSelections(joinedDoc, request.Selection.Selections)
 		addMountPointArgs(joinedOp, mountPoint, request)
-		joinedOp.Vars = upstream.ToUpstreamInputValueList(requestOp.Vars)
 		joinedDoc.Fragments = requestDoc.Fragments
+		joinedOp.Vars = requestOp.Vars
+		c.enrich(joinedDoc)
+		joinedOp.Vars = upstream.ToUpstreamInputValueList(joinedOp.Vars)
 		dataLoader.queryDocs = append(dataLoader.queryDocs, joinedDoc)
 
 		if joinedOp.Type != schema.Subscription {
 			return func() (reflect.Value, error) {
 
-				if !dataLoaders.started {
-					dataLoaders.started = true
+				if len(dataLoaders.loaders) > 0 {
 					for _, load := range dataLoaders.loaders {
 						if len(load.queryDocs) > 0 {
 
@@ -210,6 +283,7 @@ func mount(c actionRunner, field schema.Field, upstream *upstreamServer, upstrea
 							request.RunAsync(load.resolution)()
 						}
 					}
+					dataLoaders.loaders = map[string]*UpstreamDataLoader{}
 				}
 
 				// we call this to make sure we wait for the async resolution to complete
@@ -219,12 +293,12 @@ func mount(c actionRunner, field schema.Field, upstream *upstreamServer, upstrea
 		} else {
 			return func() (reflect.Value, error) {
 
-				if !dataLoaders.started {
-					dataLoaders.started = true
+				if len(dataLoaders.loaders) > 0 {
 					for _, load := range dataLoaders.loaders {
 						load.mergedDoc = mergeQueryDocs(load.queryDocs)
 						load.queryDocs = nil
 					}
+					dataLoaders.loaders = map[string]*UpstreamDataLoader{}
 				}
 
 				gqlRequest := &graphql.Request{
@@ -264,6 +338,40 @@ func mount(c actionRunner, field schema.Field, upstream *upstreamServer, upstrea
 		}
 	})
 	return nil
+}
+
+func (c actionRunner) enrich(doc *schema.QueryDocument) {
+	for _, operation := range doc.Operations {
+		operation.Selections = c.enrichSelection(operation.Selections)
+	}
+}
+
+func (c actionRunner) enrichSelection(in schema.SelectionList) (result schema.SelectionList) {
+	for _, s := range in {
+		switch s := s.(type) {
+		case *schema.FieldSelection:
+			if s.Schema == nil {
+				panic("todo")
+			}
+			if s.Schema.Field.Extension != nil {
+				vars := s.Schema.Field.Extension.(map[string]*schema.FieldSelection)
+				for _, v := range vars {
+					result = append(result, v)
+				}
+				// replace this selection with the vars selections instead.
+			} else {
+				result = append(result, s)
+			}
+
+			s.Selections = c.enrichSelection(s.Selections)
+		case *schema.InlineFragment:
+			s.Selections = c.enrichSelection(s.Selections)
+			result = append(result, s)
+		default:
+			result = append(result, s)
+		}
+	}
+	return
 }
 
 func addTypeNames(doc *schema.QueryDocument, from schema.SelectionList) schema.SelectionList {

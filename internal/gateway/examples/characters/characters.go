@@ -17,6 +17,10 @@ characters:
   name:
     first: Rukia
     last: Kuchiki
+  bestFriend: Ichigo
+  friends:
+  - Ichigo
+  - Orihime
 - id: 2
   name:
     first: Ichigo
@@ -62,6 +66,8 @@ var Schema = `
 		id: ID!
 		name: Name
 		likes: Int!
+		friends: [String!]
+		bestFriend: String
 	}
 	type Name {
 		first: String
@@ -144,9 +150,11 @@ func (r root) Character(ctx resolvers.ExecutionContext, args struct{ Id string }
 }
 
 type character struct {
-	ID    string `json:"id"`
-	Name  name   `json:"name"`
-	Likes int64  `json:"likes"`
+	ID         string   `json:"id"`
+	Name       name     `json:"name"`
+	Likes      int64    `json:"likes"`
+	BestFriend *string  `json:"bestFriend"`
+	Friends    []string `json:"friends"`
 }
 
 type name struct {

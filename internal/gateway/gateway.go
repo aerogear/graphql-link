@@ -67,7 +67,7 @@ type Subscription {}
 
 	// Use the OnRequestHook to add UpstreamLoads to the query context
 	gateway.OnRequestHook = func(r *graphql.Request, doc *schema.QueryDocument, op *schema.Operation) error {
-		r.Context = context.WithValue(r.GetContext(), DataLoadersKey, DataLoaders{
+		r.Context = context.WithValue(r.GetContext(), DataLoadersKey, &DataLoaders{
 			loaders: map[string]*UpstreamDataLoader{},
 		})
 		return nil

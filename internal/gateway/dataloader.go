@@ -12,7 +12,6 @@ import (
 )
 
 type DataLoaders struct {
-	started bool
 	loaders map[string]*UpstreamDataLoader
 }
 
