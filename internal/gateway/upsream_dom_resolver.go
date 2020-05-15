@@ -24,28 +24,29 @@ func (r upstreamDomResolver) Resolve(request *resolvers.ResolveRequest, next res
 		return next
 	}
 
-	return func() (reflect.Value, error) {
-		//In case we need to debug...
-		//json, _ := json.Marshal(parentValue.Interface())
-		//fmt.Println(string(json))
+	selection := request.Selection
 
-		selection := request.Selection
-		field := parentValue
-		if selection.Extension != nil {
-			field = reflect.ValueOf(selection.Extension)
-		} else {
-			// TODO: try to eliminate this case...
-			field = reflect.ValueOf(selection.Alias)
-		}
-		value := parentValue.MapIndex(field)
-		if !value.IsValid() {
-			return reflect.Zero(parentValue.Type().Elem()), nil
-		}
-		if value.Interface() == nil {
-			return value, nil
-		}
-		value = reflect.ValueOf(value.Interface())
-		return value, nil
+	//In case we need to debug...
+	//dump, _ := json.Marshal(parentValue.Interface())
+	//fmt.Println(string(dump))
+
+	var field reflect.Value
+	if selection.Extension != nil {
+		field = reflect.ValueOf(selection.Extension)
+	} else {
+		// TODO: try to eliminate this case...
+		field = reflect.ValueOf(selection.Alias)
+	}
+	value := parentValue.MapIndex(field)
+	if !value.IsValid() {
+		value = reflect.Zero(parentValue.Type().Elem())
 	}
 
+	//dump, _ = json.Marshal(value.Interface())
+	//fmt.Println(string(dump))
+	// value = reflect.ValueOf(value.Interface())
+
+	return func() (reflect.Value, error) {
+		return value, nil
+	}
 }

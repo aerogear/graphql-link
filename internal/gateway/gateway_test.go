@@ -199,14 +199,13 @@ func TestMutationWithObjectInput(t *testing.T) {
 
 func TestComplexQuery(t *testing.T) {
 	RunWithStarwarsGW(t, `
-      schema:
-        query: GatewayQuery
       types:
-        - name: GatewayQuery
+        - name: Query
           actions:
             - type: mount
               upstream: starwars
-              query: query {}`,
+              query: query {}
+`,
 		func(gateway, characters *httpgql.Client) {
 			res := gateway.ServeGraphQL(&graphql.Request{
 				Variables: json.RawMessage(`{"episode":"JEDI", "withoutFriends": true, "withFriends": false}`),
@@ -214,8 +213,7 @@ func TestComplexQuery(t *testing.T) {
 			})
 			require.NoError(t, res.Error())
 
-			expected := `
-{
+			expected := `{
   "hero": {
     "id": "2001",
     "name": "R2-D2",
@@ -373,6 +371,9 @@ func TestComplexQuery(t *testing.T) {
         "name": "LengthUnit"
       },
       {
+        "name": "Mutation"
+      },
+      {
         "name": "PageInfo"
       },
       {
@@ -386,6 +387,9 @@ func TestComplexQuery(t *testing.T) {
       },
       {
         "name": "String"
+      },
+      {
+        "name": "Subscription"
       },
       {
         "name": "__Directive"
@@ -482,8 +486,10 @@ func TestComplexQuery(t *testing.T) {
     ]
   }
 }`
-			t.Skip("the returned data is still not exactly right...")
-			assert.JSONEq(t, expected, string(res.Data))
+			//t.Skip("the returned data is still not exactly right...")
+			got, err := json.MarshalIndent(res.Data, "", "  ")
+			require.NoError(t, err)
+			assert.Equal(t, expected, string(got))
 		})
 
 }
