@@ -16,11 +16,10 @@ import (
 
 type Mount struct {
 	Action
-	Field       string            `json:"field"`
-	Description string            `json:"description"`
-	Upstream    string            `json:"upstream"`
-	Query       string            `json:"query"`
-	Vars        map[string]string `json:"vars"`
+	Field       string `json:"field"`
+	Description string `json:"description"`
+	Upstream    string `json:"upstream"`
+	Query       string `json:"query"`
 }
 
 func (c actionRunner) mount(action *Mount) error {
@@ -33,11 +32,7 @@ func (c actionRunner) mount(action *Mount) error {
 		field.Desc = schema.Description{Text: action.Description}
 	}
 
-	err := mount(c, field, endpoint, action.Query, action.Vars)
-	if err != nil {
-		return err
-	}
-	return nil
+	return mount(c, field, endpoint, action.Query, nil)
 }
 
 var emptySelectionRegex = regexp.MustCompile(`{\s*}\s*$`)

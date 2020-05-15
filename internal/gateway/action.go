@@ -51,6 +51,8 @@ func (h *ActionWrapper) UnmarshalJSON(b []byte) error {
 		action = &Mount{}
 	case "rename":
 		action = &Rename{}
+	case "link":
+		action = &Link{}
 	default:
 		return errors.New("invalid action type")
 	}
@@ -72,6 +74,8 @@ func (f *ActionWrapper) MarshalJSON() ([]byte, error) {
 			typeValue = "mount"
 		case *Rename:
 			typeValue = "rename"
+		case *Link:
+			typeValue = "link"
 		}
 		f.Action.GetAction().Type = typeValue
 	}

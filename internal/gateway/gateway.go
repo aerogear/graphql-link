@@ -189,6 +189,11 @@ type Subscription {}
 					if err != nil {
 						return nil, err
 					}
+				case *Link:
+					err := actionRunner.link(action)
+					if err != nil {
+						return nil, err
+					}
 				case *Rename:
 					err := actionRunner.rename(action)
 					if err != nil {

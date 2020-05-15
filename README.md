@@ -11,13 +11,11 @@ GraphQL upstream servers.
 * Introspection of the upstream server to discover their GraphQL schemas.
 * The configuration uses GraphQL queries to define which upstream fields and types can be accessed.    
 * Upstream types, that are accessible, are automatically merged into the gateway schema.
-* Type conflict due to the same type name existing in multiple upstream servers can be avoided
-  
-  by renaming types in the gateway.
+* Type conflict due to the same type name existing in multiple upstream servers can be avoided by renaming types in the gateway.
 * Supports GraphQL Queries, Mutations, and Subscriptions
-* Production mode settings to avoid the gateway's schema from dynamically changing due to 
-  
-  changes in the upstream schemas.  
+* Production mode settings to avoid the gateway's schema from dynamically changing due to changes in the upstream schemas.  
+* Uses the dataloader pattern to batch multiple query requests to the upstream servers.
+* Link the graphs of different upstream servers by defining additional link fields.
 
 ### Installing
 
@@ -65,16 +63,9 @@ Use "graphql-gw [command] --help" for more information about a command.
 
 ### Development and Production Mode
 
-The `graphql-gw serve` command will run the gateway in development mode.  Development mode
-will cause the gateway to download upstream schemas on start up.  The schema files will
-be stored in the `upstreams` directory (located in the same directory as the gateway 
-configuration file).  If any of the schemas cannot be downloaded the gateway will fail to
-startup.
+The `graphql-gw serve` command will run the gateway in development mode.  Development mode will cause the gateway to download upstream schemas on start up.  The schema files will be stored in the `upstreams` directory (located in the same directory as the gateway configuration file).  If any of the schemas cannot be downloaded the gateway will fail to startup.
 
-You can use `graphql-gw serve --production` to enabled production mode.  In this mode, the 
-schema for the upstream severs will be loaded from the `upstreams` directory that they were
-stored when you used development mode.  This ensures that your gateway will have a consistent 
-schema presented, and that it's start up will not be impacted by the availability of the upstream
+You can use `graphql-gw serve --production` to enabled production mode.  In this mode, the schema for the upstream severs will be loaded from the `upstreams` directory that they were stored when you used development mode.  This ensures that your gateway will have a consistent schema presented, and that it's start up will not be impacted by the availability of the upstream
 servers.
 
 ## Configuration Guide
@@ -92,9 +83,7 @@ listen: localhost:8080
 ### `upstreams:`
 
 The upstreams section holds a map of all the upstream severs that you will be
-accessing with the gateway.  The example below defines two upstream servers: `anilist` and `users`.
-Keep in mind that the URL configured must be a graphql server that is accessible from the 
-gateway's network. 
+accessing with the gateway.  The example below defines two upstream servers: `anilist` and `users`. Keep in mind that the URL configured must be a graphql server that is accessible from the gateway's network. 
 
 ```yaml
 upstreams:
@@ -104,9 +93,7 @@ upstreams:
     url: https://users.acme.io/graphql
 ```
 
-If there are duplicate types across the upstream severs you can configure either type name
-prefixes or suffixes on the upstream severs so that conflicts can be avoided when imported
-into the gateway.  Example:
+If there are duplicate types across the upstream severs you can configure either type name prefixes or suffixes on the upstream severs so that conflicts can be avoided when imported into the gateway.  Example:
 
 ```yaml
 upstreams:
@@ -154,8 +141,7 @@ types:
 
 ### `actions:`
 
-`actions:` is a list configuration actions to take against on the named type.  The actions are processed in 
-order.  You can select from the following actions types:
+`actions:` is a list configuration actions to take against on the named type.  The actions are processed in order.  You can select from the following actions types:
 
 | type                            | Description                                                               |
 | ------------------------------- | ------------------------------------------------------------------------- |
@@ -172,6 +158,19 @@ The `mount` action can be used to mount an upstream field onto a gateway schema 
 | `query:`    | yes      | partial graphql query document to one node in the upstream server graph.                                                                |
 | `field:`    | no       | field name to mount the resulting node on to.  not not specified, then all the field of the node are mounted on to the the parent type. |
 
+### Action `type: link`
+
+The `link` action is a more advanced version of mount.  It is typically used to create new fields that link to data from a different upstream server.
+
+| Field       | Required | Description                                                                                                                                      |
+| ----------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `upstream:` | yes      | a reference to an upstream server defined in the `upstreams:` section.                                                                           |
+| `query:`    | yes      | partial graphql query document to one node in the upstream server graph.                                                                         |
+| `field:`    | yes      | field name to mount the resulting node on to.                                                                                                    |
+| `vars:`     | no       | a map of variable names to query selection paths to single leaf node.  The selections defined here will be the values passed to the the `query:` |
+
+
+
 ### Action `type: rename`
 
 The `rename` action can be used to rename either a type or field in the gateway schema. 
@@ -185,9 +184,7 @@ The `rename` action can be used to rename either a type or field in the gateway 
 
 ### Importing all the fields of an upstream graphql upstream server.
 
-If you want to import all the fields of an upstream server type, simply don't specify 
-the name for the field to mount the query on to. The following example will import all the
-query fields onto the `Query` type and all the mutation fields on the `Mutation` type. 
+If you want to import all the fields of an upstream server type, simply don't specify the name for the field to mount the query on to. The following example will import all the query fields onto the `Query` type and all the mutation fields on the `Mutation` type. 
 
 ```yaml
 types:
@@ -225,9 +222,7 @@ types:
         }
 ```
 
-In the example above a `pagedCharacterSearch(search:String, page:Int)` field would 
-be defined on the Query type and it would return the type returned by the `characters`
-field of the anilist upstream. 
+In the example above a `pagedCharacterSearch(search:String, page:Int)` field would be defined on the Query type and it would return the type returned by the `characters`field of the anilist upstream. 
 
 ## License
 
