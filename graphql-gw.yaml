@@ -5,37 +5,58 @@ listen: localhost:8080
 # Configure the GraphQL upstream servers you will be accessing
 upstreams:
   anilist:
-    url: https://graphql.anilist.co/
+    url: https://graphql.anilist.co
     prefix: Ani
-
+  pokemon:
+    url: https://graphql-pokemon.now.sh
+    prefix: Pokemon
+    
 types:
   - name: Query
     actions:
-      # mounts all the fields of the root anilist query onto the Query type
+      # mounts the root anilist query to the anime field
       - type: mount
+        field: anime
         upstream: anilist
         query: query {}
 
-      # mounts on a new ani_query field the root anilist query
+      # mounts the root pokemon query to the pokemon field
       - type: mount
-        name: ani_query
-        upstream: anilist
+        field: pokemon
+        upstream: pokemon
         query: query {}
 
-      # Adds a animeCharacters($page:Int, $perPage:Int, $search:String) field
-      - type: mount
-        name: animeCharacters
-        upstream: anilist
-        query: |
-          query ($page:Int, $perPage:Int, $search:String) {
-            Page(page:$page, perPage:$perPage) {
-              characters(search:$search)
-            }
-          }
+  - name: AniCharacter
+    actions:
+      # mounts the root anilist query to the anime field
+      - type: link
+        field: pokemon
+        vars:
+          $fullname: name { full }
+        upstream: pokemon
+        query: query { pokemon(name:$fullname) }
+#
+# The above link lets you do queries that access data from both the anilist and pokemon services. Example:
+# query anime {
+#   anime {
+#     Character(search: "Pikachu") {
+#       description
+#       pokemon {
+#         attacks {
+#           special {
+#             name
+#             type
+#             damage
+#           }
+#         }        
+#       }
+#     }
+#   }
+# }
 
   - name: Mutation
     actions:
-      # mounts all the fields of the root anilist mutation onto the Mutation type
+      # mounts all the fields of the root anilist mutation
       - type: mount
         upstream: anilist
         query: mutation {}
