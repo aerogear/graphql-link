@@ -337,33 +337,50 @@ func mount(c actionRunner, field schema.Field, upstream *upstreamServer, upstrea
 
 func (c actionRunner) enrich(doc *schema.QueryDocument) {
 	for _, operation := range doc.Operations {
-		operation.Selections = c.enrichSelection(operation.Selections)
+		_, operation.Selections = c.enrichSelection(operation.Selections)
 	}
 }
 
-func (c actionRunner) enrichSelection(in schema.SelectionList) (result schema.SelectionList) {
-	for _, s := range in {
-		switch s := s.(type) {
+func (c actionRunner) enrichSelection(in schema.SelectionList) (originalSelections schema.SelectionList, enrichedSelections schema.SelectionList) {
+
+	// TODO: think of a way to simplify the logic here.  It's a bit complicated right now
+	// because `in` has selections from the original request and we don't want to add fields to those selections,
+	// we only want to add fields to the selections sent in the upstream query... so we have to copy
+	// the selections and link the request selections to copies, since only the upstream query selections
+	// get informed of modifications caused by the data loader to compress the fields.
+
+
+	for _, original := range in {
+		switch original := original.(type) {
 		case *schema.FieldSelection:
-			if s.Schema == nil {
+
+			enriched := *original
+			original.Extension = &enriched
+			original.Selections, enriched.Selections = c.enrichSelection(original.Selections)
+
+			originalSelections = append(originalSelections, original)
+			if original.Schema == nil {
 				panic("todo")
 			}
-			if s.Schema.Field.Extension != nil {
-				vars := s.Schema.Field.Extension.(map[string]*schema.FieldSelection)
+			if original.Schema.Field.Extension != nil {
+				vars := original.Schema.Field.Extension.(map[string]*schema.FieldSelection)
 				for _, v := range vars {
-					result = append(result, v)
+					enrichedSelections = append(enrichedSelections, v)
 				}
-				// replace this selection with the vars selections instead.
 			} else {
-				result = append(result, s)
+				enrichedSelections = append(enrichedSelections, &enriched)
 			}
 
-			s.Selections = c.enrichSelection(s.Selections)
 		case *schema.InlineFragment:
-			s.Selections = c.enrichSelection(s.Selections)
-			result = append(result, s)
+
+			enriched := *original
+			original.Selections, enriched.Selections = c.enrichSelection(original.Selections)
+			originalSelections = append(originalSelections, original)
+			enrichedSelections = append(enrichedSelections, &enriched)
+
 		default:
-			result = append(result, s)
+			originalSelections = append(originalSelections, original)
+			enrichedSelections = append(enrichedSelections, original)
 		}
 	}
 	return

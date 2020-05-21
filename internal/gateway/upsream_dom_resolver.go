@@ -4,6 +4,7 @@ import (
 	"reflect"
 
 	"github.com/chirino/graphql/resolvers"
+	"github.com/chirino/graphql/schema"
 )
 
 type upstreamDomResolver byte
@@ -30,17 +31,8 @@ func (r upstreamDomResolver) Resolve(request *resolvers.ResolveRequest, next res
 	//dump, _ := json.Marshal(parentValue.Interface())
 	//fmt.Println(string(dump))
 
-	var field reflect.Value
-	if selection.Extension != nil {
-		field = reflect.ValueOf(selection.Extension)
-	} else {
-		// TODO: try to eliminate this case...
-		field = reflect.ValueOf(selection.Alias)
-	}
-	value := parentValue.MapIndex(field)
-	if !value.IsValid() {
-		value = reflect.Zero(parentValue.Type().Elem())
-	}
+	field := getUpstreamFieldName(selection)
+	value := parentValue.MapIndex(reflect.ValueOf(field))
 
 	//dump, _ = json.Marshal(value.Interface())
 	//fmt.Println(string(dump))
@@ -48,5 +40,18 @@ func (r upstreamDomResolver) Resolve(request *resolvers.ResolveRequest, next res
 
 	return func() (reflect.Value, error) {
 		return value, nil
+	}
+}
+
+func getUpstreamFieldName(selection *schema.FieldSelection) string {
+	switch extension := selection.Extension.(type) {
+	case nil:
+		return selection.Alias
+	case *schema.FieldSelection:
+		return getUpstreamFieldName(extension)
+	case string:
+		return extension
+	default:
+		panic("encountered unexpected selection extension")
 	}
 }

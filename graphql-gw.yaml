@@ -37,22 +37,25 @@ types:
         query: query { pokemon(name:$fullname) }
 #
 # The above link lets you do queries that access data from both the anilist and pokemon services. Example:
-# query anime {
-#   anime {
-#     Character(search: "Pikachu") {
-#       description
-#       pokemon {
-#         attacks {
-#           special {
-#             name
-#             type
-#             damage
-#           }
-#         }        
-#       }
-#     }
-#   }
-# }
+# query {
+#  anime {
+#    Character(search: "Pikachu") {
+#      description
+#      image {
+#        medium
+#      }
+#      pokemon {
+#        attacks {
+#          special {
+#            name
+#            type
+#            damage
+#          }
+#        }
+#      }
+#    }
+#  }
+#}
 
   - name: Mutation
     actions:

@@ -64,18 +64,20 @@ func getUpstreamValue(ctx context.Context, result *graphql.Response, doc *schema
 	if err != nil {
 		return reflect.Value{}, err
 	}
-	var v interface{} = data
 
+	var v interface{} = data
 	for _, sel := range selectionPath {
 		switch sel := sel.(type) {
 		case *schema.FieldSelection:
 			if m, ok := v.(map[string]interface{}); ok {
-				v = m[sel.Extension.(string)]
+				name := getUpstreamFieldName(sel)
+				v = m[name]
 			} else {
 				return reflect.Value{}, errors.Errorf("expected upstream field not found: %s", sel.Name)
 			}
 		}
 	}
+
 
 	// This enables the upstreamDomResolverInstance for all child fields of this result.
 	// needed to property handle field aliases.
