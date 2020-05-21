@@ -56,31 +56,46 @@ func (p proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 }
 
 func StartServer(host string, port uint16, engine *graphql.Engine, log *log.Logger) (*httptest.Server, error) {
-	l, err := net.Listen("tcp", fmt.Sprintf("%s:%d", host, port))
+
+	mux := http.NewServeMux()
+	server, err := StartHttpListener(fmt.Sprintf("%s:%d", host, port), mux)
+	if err != nil {
+		return nil, err
+	}
+
+	mux.Handle("/graphql", &httpgql.Handler{ServeGraphQLStream: engine.ServeGraphQLStream})
+	endpoint := fmt.Sprintf("%s/graphql", server.URL)
+	mux.Handle("/", graphiql.New(endpoint, true))
+
+	log.Printf("GraphQL endpoint running at %s", endpoint)
+	log.Printf("GraphQL UI running at %s", server.URL)
+	return server, nil
+}
+
+func StartHttpListener(listen string, handler http.Handler) (*httptest.Server, error) {
+	host, port, err := net.SplitHostPort(listen)
+	if err != nil {
+		return nil, err
+	}
+
+	l, err := net.Listen("tcp", fmt.Sprintf("%s:%s", host, port))
 	if err != nil {
 		switch host {
 		case "localhost":
 			fallthrough
 		case "127.0.0.1":
 			host = "[::1]"
-			if l, err = net.Listen("tcp6", fmt.Sprintf("%s:%d", host, port)); err != nil {
-				panic(fmt.Sprintf("httptest: failed to listen on a port: %v", err))
+			if l, err = net.Listen("tcp6", fmt.Sprintf("%s:%s", host, port)); err != nil {
+				return nil, errors.Wrap(err, "failed to listen on the port")
 			}
 		default:
-			return nil, errors.Wrap(err, "httptest: failed to listen on a port")
+			return nil, errors.Wrap(err, "failed to listen on the port")
 		}
 	}
-
-	mux := http.NewServeMux()
-	mux.Handle("/graphql", &httpgql.Handler{ServeGraphQLStream: engine.ServeGraphQLStream})
-	endpoint := fmt.Sprintf("http://%s/graphql", l.Addr())
-	mux.Handle("/", graphiql.New(endpoint, true))
 	ts := &httptest.Server{
 		Listener: l,
-		Config:   &http.Server{Handler: mux},
+		Config:   &http.Server{Handler: handler},
 	}
-	log.Printf("GraphQL endpoint running at %s", endpoint)
-	log.Printf("GraphQL UI running at http://%s", l.Addr())
 	ts.Start()
 	return ts, nil
 }

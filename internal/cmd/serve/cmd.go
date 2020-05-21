@@ -3,16 +3,19 @@ package serve
 import (
 	"fmt"
 	"io/ioutil"
-	"net"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"syscall"
 
 	"github.com/chirino/graphql-gw/internal/cmd/root"
 	"github.com/chirino/graphql-gw/internal/gateway"
 	"github.com/chirino/graphql/graphiql"
 	"github.com/chirino/graphql/httpgql"
+	"github.com/fsnotify/fsnotify"
 	"github.com/ghodss/yaml"
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
 
@@ -34,32 +37,117 @@ func init() {
 
 type Config struct {
 	gateway.Config
-	Listen string `json:"listen"`
+	Listen    string `json:"listen"`
+	verbosity string `json:"-"`
 }
 
 func run(cmd *cobra.Command, args []string) {
-	log := gateway.SimpleLog
-	vebosityFmt := "%v"
+	config := Config{}
+	config.ConfigDirectory = filepath.Dir(ConfigFile)
+	config.Log = gateway.SimpleLog
+	config.verbosity = "%v"
 	if !root.Verbose {
-		vebosityFmt = "%+v\n"
+		config.verbosity = "%+v\n"
 	}
 
+	fileConfig := config
+	err := readConfig(&fileConfig)
+	if err != nil {
+		config.Log.Fatalf("error reading configuration file: "+config.verbosity, err)
+	}
+
+	stopper := startServer(fileConfig)
+	restart := func() {
+
+		fileConfig := config
+		err := readConfig(&fileConfig)
+		if err != nil {
+			config.Log.Fatalf("error reading configuration file: "+config.verbosity, err)
+		}
+
+		stopper()
+		if err != nil {
+			config.Log.Fatalf("error occured while stopping server: "+config.verbosity, err)
+		}
+
+		stopper = startServer(fileConfig)
+	}
+
+	if !Production {
+		watchFile(ConfigFile, func(in fsnotify.Event) {
+			config.Log.Println("restarting due to configuration change:", in.Name)
+			restart()
+		})
+	}
+
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
+	for {
+		switch <-sigs {
+		case syscall.SIGINT:
+			config.Log.Println("shutting down due to SIGINT signal")
+			stopper()
+			os.Exit(0)
+
+		case syscall.SIGTERM:
+			config.Log.Println("shutting down due to SIGTERM signal")
+			stopper()
+			os.Exit(0)
+
+		case syscall.SIGHUP:
+			config.Log.Println("restarting due to SIGHUP signal")
+			restart()
+		}
+	}
+}
+
+func watchFile(filename string, onChange func(in fsnotify.Event)) (*fsnotify.Watcher, error) {
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		return nil, err
+	}
+	realConfigFile, _ := filepath.EvalSymlinks(filename)
+	err = watcher.Add(realConfigFile)
+	if err != nil {
+		watcher.Close()
+		return nil, err
+	}
+
+	go func() {
+		defer watcher.Close()
+		for {
+			select {
+			case event, ok := <-watcher.Events:
+				if !ok {
+					return
+				}
+				const writeOrCreateMask = fsnotify.Write | fsnotify.Create
+				if event.Op&writeOrCreateMask != 0 {
+					onChange(event)
+				}
+			case <-watcher.Errors:
+				return
+			}
+		}
+	}()
+	return watcher, nil
+}
+
+func readConfig(config interface{}) error {
 	file, err := ioutil.ReadFile(ConfigFile)
 
 	if err != nil {
-		log.Fatalf("Error reading config file: %s.", err)
-		panic(err)
+		return errors.Wrapf(err, "reading config file: %s.", ConfigFile)
 	}
 
-	config := Config{}
 	err = yaml.Unmarshal(file, &config)
 	if err != nil {
-		log.Fatalf("Error parsing yaml file: %s.", err)
-		panic(err)
+		return errors.Wrapf(err, "parsing yaml of: %s.", ConfigFile)
 	}
+	return nil
+}
 
-	config.ConfigDirectory = filepath.Dir(ConfigFile)
-	config.Log = gateway.SimpleLog
+func startServer(config Config) (stopper func()) {
 
 	// Let's only apply the env expansion to the URLs for now.
 	// We don't want to run it on queries which can have $var expressions
@@ -72,7 +160,7 @@ func run(cmd *cobra.Command, args []string) {
 	}
 
 	if config.Listen == "" {
-		config.Listen = "localhost:8080"
+		config.Listen = "0.0.0.0:8080"
 	}
 
 	if Production {
@@ -85,25 +173,27 @@ func run(cmd *cobra.Command, args []string) {
 
 	engine, err := gateway.New(config.Config)
 	if err != nil {
-		log.Fatalf(vebosityFmt, err)
+		config.Log.Fatalf(config.verbosity, err)
 	}
 
-	host, port, err := net.SplitHostPort(config.Listen)
+	mux := http.NewServeMux()
+	server, err := gateway.StartHttpListener(config.Listen, mux)
 	if err != nil {
-		log.Fatalf(vebosityFmt, err)
+		config.Log.Fatalf(config.verbosity, err)
 	}
 
-	endpoint := fmt.Sprintf("http://%s:%s", host, port)
-	handler := gateway.CreateHttpHandler(engine.ServeGraphQLStream).(*httpgql.Handler)
+	gatewayHandler := gateway.CreateHttpHandler(engine.ServeGraphQLStream).(*httpgql.Handler)
 	// Enable pretty printed json results when in dev mode.
 	if !Production {
-		handler.Indent = "  "
+		gatewayHandler.Indent = "  "
 	}
 
-	http.Handle("/graphql", handler)
-	log.Printf("GraphQL endpoint running at %s/graphql", endpoint)
-	http.Handle("/", graphiql.New(endpoint+"/graphql", true))
-	log.Printf("GraphQL UI running at %s", endpoint)
+	graphqlURL := fmt.Sprintf("%s/graphql", server.URL)
+	mux.Handle("/graphql", gatewayHandler)
+	mux.Handle("/", graphiql.New(graphqlURL, true))
 
-	log.Fatalf(vebosityFmt, http.ListenAndServe(config.Listen, nil))
+	config.Log.Printf("GraphQL endpoint running at %s", graphqlURL)
+	config.Log.Printf("GraphQL UI running at %s", server.URL)
+
+	return server.Close
 }
