@@ -349,7 +349,6 @@ func (c actionRunner) enrichSelection(in schema.SelectionList) (originalSelectio
 	// the selections and link the request selections to copies, since only the upstream query selections
 	// get informed of modifications caused by the data loader to compress the fields.
 
-
 	for _, original := range in {
 		switch original := original.(type) {
 		case *schema.FieldSelection:

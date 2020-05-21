@@ -78,7 +78,6 @@ func getUpstreamValue(ctx context.Context, result *graphql.Response, doc *schema
 		}
 	}
 
-
 	// This enables the upstreamDomResolverInstance for all child fields of this result.
 	// needed to property handle field aliases.
 	return reflect.ValueOf(resolvers.ValueWithContext{
