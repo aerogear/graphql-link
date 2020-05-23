@@ -179,6 +179,11 @@ type Subscription {}
 					if err != nil {
 						return nil, err
 					}
+				case *Remove:
+					err := actionRunner.remove(action)
+					if err != nil {
+						return nil, err
+					}
 				}
 
 			}

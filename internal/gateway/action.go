@@ -51,6 +51,8 @@ func (h *ActionWrapper) UnmarshalJSON(b []byte) error {
 		action = &Mount{}
 	case "rename":
 		action = &Rename{}
+	case "remove":
+		action = &Remove{}
 	case "link":
 		action = &Link{}
 	default:
@@ -76,6 +78,8 @@ func (f *ActionWrapper) MarshalJSON() ([]byte, error) {
 			typeValue = "rename"
 		case *Link:
 			typeValue = "link"
+		case *Remove:
+			typeValue = "remove"
 		}
 		f.Action.GetAction().Type = typeValue
 	}

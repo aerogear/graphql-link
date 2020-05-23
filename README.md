@@ -167,9 +167,7 @@ The `link` action is a more advanced version of mount.  It is typically used to 
 | `upstream:` | yes      | a reference to an upstream server defined in the `upstreams:` section.                                                                           |
 | `query:`    | yes      | partial graphql query document to one node in the upstream server graph.                                                                         |
 | `field:`    | yes      | field name to mount the resulting node on to.                                                                                                    |
-| `vars:`     | no       | a map of variable names to query selection paths to single leaf node.  The selections defined here will be the values passed to the the `query:` |
-
-
+| `vars:`     | no       | a map of variable names to query selection paths to single leaf node.  The selections defined here will be the values passed to the the `query:` |
 
 ### Action `type: rename`
 
@@ -179,6 +177,14 @@ The `rename` action can be used to rename either a type or field in the gateway 
 | -------- | -------- | -------------------------------------------------------------------------------------------- |
 | `field:` | no       | if not set, you will be renaming the type, if set, you will be renaming a field of the type. |
 | `to:`    | yes      | the new name                                                                                 |
+
+### Action `type: remove`
+
+The `remove` action can be used to remove a field from a type.
+
+| Field    | Required | Description                            |
+| -------- | -------- | -------------------------------------- |
+| `field:` | yes      | The field name to remove from the type |
 
 ## Common Use Cases
 
