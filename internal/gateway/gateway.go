@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"context"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -117,31 +118,10 @@ type Subscription {}
 	}
 	gateway.Resolver = resolvers.List(gateway.Resolver, upstreamDomResolverInstance, fieldResolver)
 
-	upstreams := map[string]*upstreamServer{}
-
-	for upstreamId, upstream := range config.Upstreams {
-		switch upstream := upstream.Upstream.(type) {
-		case *GraphQLUpstream:
-			c := httpgql.NewClient(upstream.URL)
-			c.HTTPClient = &http.Client{
-				Transport: proxyTransport(0),
-			}
-			upstreams[upstreamId] = &upstreamServer{
-				id:                         upstreamId,
-				client:                     c.ServeGraphQL,
-				subscriptionClient:         c.ServeGraphQLStream,
-				originalNames:              map[string]schema.NamedType{},
-				gatewayToUpstreamTypeNames: map[string]string{},
-				info:                       *upstream,
-				schema:                     nil,
-			}
-		default:
-			panic("invalid upstream type")
-		}
-	}
+	upstreams := createUpstreams(config)
 
 	for eid, upstream := range upstreams {
-		original, err := loadEndpointSchema(config, eid, upstream)
+		original, err := loadEndpointSchema(config, upstream)
 
 		// TODO: implement schema.DeepCopy()
 		merged := schema.New()
@@ -207,6 +187,57 @@ type Subscription {}
 		}
 	}
 	return gateway, nil
+}
+
+func createUpstreams(config Config) map[string]*upstreamServer {
+	upstreams := map[string]*upstreamServer{}
+
+	for upstreamId, upstream := range config.Upstreams {
+		switch upstream := upstream.Upstream.(type) {
+		case *GraphQLUpstream:
+			c := httpgql.NewClient(upstream.URL)
+			c.HTTPClient = &http.Client{
+				Transport: proxyTransport(0),
+			}
+			upstreams[upstreamId] = &upstreamServer{
+				id:                         upstreamId,
+				client:                     c.ServeGraphQL,
+				subscriptionClient:         c.ServeGraphQLStream,
+				originalNames:              map[string]schema.NamedType{},
+				gatewayToUpstreamTypeNames: map[string]string{},
+				info:                       *upstream,
+				schema:                     nil,
+			}
+		default:
+			panic("invalid upstream type")
+		}
+	}
+	return upstreams
+}
+
+func HaveUpstreamSchemaChanged(config Config) (bool, error) {
+	if config.DisableSchemaDownloads || !config.EnabledSchemaStorage {
+		return false, nil
+	}
+	upstreams := createUpstreams(config)
+	for eid, upstream := range upstreams {
+
+		// Load the old stored schema.
+		upstreamSchemaFile := filepath.Join(config.ConfigDirectory, "upstreams", eid+".graphql")
+		data, err := ioutil.ReadFile(upstreamSchemaFile)
+		if err != nil {
+			return false, err
+		}
+
+		s, err := downloadSchema(config, upstream)
+		if err != nil {
+			continue // ignore download errors... they could be transient..
+		}
+		if s.String() != string(data) {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func getSelectedFields(upstreamSchema *schema.Schema, q *schema.QueryDocument, op *schema.Operation) ([]exec.FieldSelection, error) {

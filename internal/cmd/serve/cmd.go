@@ -4,10 +4,13 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"sync"
 	"syscall"
+	"time"
 
 	"github.com/chirino/graphql-gw/internal/cmd/root"
 	"github.com/chirino/graphql-gw/internal/gateway"
@@ -38,7 +41,8 @@ func init() {
 type Config struct {
 	gateway.Config
 	Listen    string `json:"listen"`
-	verbosity string `json:"-"`
+	verbosity string
+	server    *httptest.Server
 }
 
 func run(cmd *cobra.Command, args []string) {
@@ -50,27 +54,46 @@ func run(cmd *cobra.Command, args []string) {
 		config.verbosity = "%+v\n"
 	}
 
-	fileConfig := config
-	err := readConfig(&fileConfig)
+	lastConfig := config
+	err := readConfig(&lastConfig)
 	if err != nil {
 		config.Log.Fatalf("error reading configuration file: "+config.verbosity, err)
 	}
 
-	stopper := startServer(fileConfig)
-	restart := func() {
+	err = lastConfig.startServer()
+	if err != nil {
+		config.Log.Fatalf("could not start the sever: "+config.verbosity, err)
+	}
 
-		fileConfig := config
-		err := readConfig(&fileConfig)
+	restartMu := sync.Mutex{}
+	restart := func() {
+		restartMu.Lock()
+		defer restartMu.Unlock()
+
+		nextConfig := lastConfig
+		err := readConfig(&nextConfig)
 		if err != nil {
 			config.Log.Fatalf("error reading configuration file: "+config.verbosity, err)
 		}
 
-		stopper()
-		if err != nil {
-			config.Log.Fatalf("error occured while stopping server: "+config.verbosity, err)
+		// restart the server on a port change...
+		if lastConfig.Listen != nextConfig.Listen {
+			lastConfig.server.Close()
+			if err != nil {
+				config.Log.Fatalf("error occured while stopping server: "+config.verbosity, err)
+			}
+
+			err = nextConfig.startServer()
+			if err != nil {
+				config.Log.Fatalf("could not start the sever: "+config.verbosity, err)
+			}
+		} else {
+			// Just remount a new engine on to the server...
+			nextConfig.postProcess()
+			nextConfig.mountGatewayOnHttpServer()
 		}
 
-		stopper = startServer(fileConfig)
+		lastConfig = nextConfig
 	}
 
 	if !Production {
@@ -78,6 +101,17 @@ func run(cmd *cobra.Command, args []string) {
 			config.Log.Println("restarting due to configuration change:", in.Name)
 			restart()
 		})
+
+		go func() {
+			for {
+				changed, err := gateway.HaveUpstreamSchemaChanged(lastConfig.Config)
+				if err == nil && changed {
+					config.Log.Println("restarting due to an upstream schema change")
+					restart()
+				}
+				time.Sleep(5 * time.Minute)
+			}
+		}()
 	}
 
 	sigs := make(chan os.Signal, 1)
@@ -86,12 +120,12 @@ func run(cmd *cobra.Command, args []string) {
 		switch <-sigs {
 		case syscall.SIGINT:
 			config.Log.Println("shutting down due to SIGINT signal")
-			stopper()
+			lastConfig.server.Close()
 			os.Exit(0)
 
 		case syscall.SIGTERM:
 			config.Log.Println("shutting down due to SIGTERM signal")
-			stopper()
+			lastConfig.server.Close()
 			os.Exit(0)
 
 		case syscall.SIGHUP:
@@ -147,8 +181,38 @@ func readConfig(config interface{}) error {
 	return nil
 }
 
-func startServer(config Config) (stopper func()) {
+func (config *Config) startServer() error {
+	config.postProcess()
+	server, err := gateway.StartHttpListener(config.Listen, http.NewServeMux())
+	if err != nil {
+		return err
+	}
+	config.server = server
+	config.mountGatewayOnHttpServer()
+	return nil
+}
 
+func (config *Config) mountGatewayOnHttpServer() error {
+	engine, err := gateway.New(config.Config)
+	if err != nil {
+		return err
+	}
+	gatewayHandler := gateway.CreateHttpHandler(engine.ServeGraphQLStream).(*httpgql.Handler)
+	// Enable pretty printed json results when in dev mode.
+	if !Production {
+		gatewayHandler.Indent = "  "
+	}
+	graphqlURL := fmt.Sprintf("%s/graphql", config.server.URL)
+	mux := http.NewServeMux()
+	mux.Handle("/graphql", gatewayHandler)
+	mux.Handle("/", graphiql.New(graphqlURL, true))
+	config.server.Config.Handler = mux
+	config.Log.Printf("GraphQL endpoint running at %s", graphqlURL)
+	config.Log.Printf("GraphQL UI running at %s", config.server.URL)
+	return nil
+}
+
+func (config *Config) postProcess() {
 	// Let's only apply the env expansion to the URLs for now.
 	// We don't want to run it on queries which can have $var expressions
 	// in them.
@@ -170,30 +234,4 @@ func startServer(config Config) (stopper func()) {
 		config.DisableSchemaDownloads = false
 		config.EnabledSchemaStorage = true
 	}
-
-	engine, err := gateway.New(config.Config)
-	if err != nil {
-		config.Log.Fatalf(config.verbosity, err)
-	}
-
-	mux := http.NewServeMux()
-	server, err := gateway.StartHttpListener(config.Listen, mux)
-	if err != nil {
-		config.Log.Fatalf(config.verbosity, err)
-	}
-
-	gatewayHandler := gateway.CreateHttpHandler(engine.ServeGraphQLStream).(*httpgql.Handler)
-	// Enable pretty printed json results when in dev mode.
-	if !Production {
-		gatewayHandler.Indent = "  "
-	}
-
-	graphqlURL := fmt.Sprintf("%s/graphql", server.URL)
-	mux.Handle("/graphql", gatewayHandler)
-	mux.Handle("/", graphiql.New(graphqlURL, true))
-
-	config.Log.Printf("GraphQL endpoint running at %s", graphqlURL)
-	config.Log.Printf("GraphQL UI running at %s", server.URL)
-
-	return server.Close
 }
