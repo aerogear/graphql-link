@@ -23,5 +23,9 @@ func TestRemoveField(t *testing.T) {
 				Query: ` query { search(name: "Rukia") { x: id } }`,
 			})
 			require.Error(t, res.Error())
+			res = gateway.ServeGraphQL(&graphql.Request{
+				Query: ` query { characters { id } }`,
+			})
+			require.NoError(t, res.Error())
 		})
 }

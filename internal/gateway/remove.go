@@ -15,7 +15,7 @@ func (c actionRunner) remove(action *Remove) error {
 		return errors.New("field must be set")
 	}
 	c.Type.Fields = c.Type.Fields.Select(func(d *schema.Field) bool {
-		return d.Name != d.Name
+		return d.Name != action.Field
 	})
 	return nil
 }
