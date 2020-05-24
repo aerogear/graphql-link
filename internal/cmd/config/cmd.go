@@ -14,8 +14,8 @@ import (
 
 type Config struct {
 	gateway.Config
-	Listen string `json:"listen"`
-	Server *httptest.Server
+	Listen string           `json:"listen"`
+	Server *httptest.Server `json:"-"`
 }
 
 var (
@@ -52,5 +52,13 @@ func Load(config *Config) error {
 
 	config.ConfigDirectory = filepath.Dir(File)
 	config.Log = gateway.SimpleLog
+
+	if config.Upstreams == nil {
+		config.Upstreams = map[string]gateway.UpstreamWrapper{}
+	}
+	if config.Types == nil {
+		config.Types = []gateway.TypeConfig{}
+	}
+
 	return nil
 }

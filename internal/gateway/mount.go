@@ -16,10 +16,10 @@ import (
 
 type Mount struct {
 	Action
-	Field       string `json:"field"`
-	Description string `json:"description"`
-	Upstream    string `json:"upstream"`
-	Query       string `json:"query"`
+	Field       string `json:"field,omitempty"`
+	Description string `json:"description,omitempty"`
+	Upstream    string `json:"upstream,omitempty"`
+	Query       string `json:"query,omitempty"`
 }
 
 func (c actionRunner) mount(action *Mount) error {

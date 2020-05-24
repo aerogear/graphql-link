@@ -7,7 +7,8 @@ import (
 
 var (
 	Command = &cobra.Command{
-		Use: "add",
+		Use:   "add",
+		Short: "adds an upstream server",
 	}
 )
 

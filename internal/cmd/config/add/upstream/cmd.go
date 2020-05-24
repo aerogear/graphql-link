@@ -21,11 +21,13 @@ var (
 		Use:   "upstream [name] [url]",
 		Short: "Adds new upstream to config.",
 		Long:  `Command lets you assemble gateway config by letting you add new upstream gateway`,
-		Run:   run,
-		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		Args:  cobra.ExactArgs(2),
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			upstreamName = args[0]
 			upstreamURL = args[1]
+			return config.PreRunLoad(cmd, args)
 		},
+		Run: run,
 	}
 	upstreamName = ""
 	upstreamURL  = ""
@@ -112,12 +114,6 @@ func run(cmd *cobra.Command, args []string) {
 
 	// Update the config
 
-	if c.Upstreams == nil {
-		c.Upstreams = map[string]gateway.UpstreamWrapper{}
-	}
-	if c.Types == nil {
-		c.Types = []gateway.TypeConfig{}
-	}
 	c.Upstreams[upstreamName] = gateway.UpstreamWrapper{Upstream: upstream}
 
 	configYml, err := yaml.Marshal(&c)
