@@ -13,12 +13,12 @@ import (
 
 type upstreamServer struct {
 	id                         string
-	client                     func(request *graphql.Request) *graphql.Response
+	Client                     func(request *graphql.Request) *graphql.Response
 	subscriptionClient         func(request *graphql.Request) graphql.ResponseStream
 	originalNames              map[string]schema.NamedType
 	gatewayToUpstreamTypeNames map[string]string
-	schema                     *schema.Schema
-	originalSchema             *schema.Schema
+	Schema                     *schema.Schema
+	OriginalSchema             *schema.Schema
 	info                       GraphQLUpstream
 }
 
@@ -52,6 +52,31 @@ func (u *upstreamServer) ToUpstreamType(t schema.Type) schema.Type {
 		}
 	}
 	return t
+}
+
+func (upstream *upstreamServer) RenameTypes(original *schema.Schema) error {
+	// TODO: implement schema.DeepCopy()
+	merged := schema.New()
+	err := merged.Parse(original.String())
+	if err != nil {
+		return err
+	}
+
+	for k, v := range merged.Types {
+		upstream.originalNames[k] = v
+	}
+	if upstream.info.Prefix != "" {
+		merged.RenameTypes(func(x string) string { return upstream.info.Prefix + x })
+	}
+	if upstream.info.Suffix != "" {
+		merged.RenameTypes(func(x string) string { return x + upstream.info.Suffix })
+	}
+	upstream.Schema = merged
+	upstream.OriginalSchema = original
+	for n, t := range upstream.originalNames {
+		upstream.gatewayToUpstreamTypeNames[t.TypeName()] = n
+	}
+	return nil
 }
 
 func getUpstreamValue(ctx context.Context, result *graphql.Response, doc *schema.QueryDocument, selectionPath []schema.Selection) (reflect.Value, error) {

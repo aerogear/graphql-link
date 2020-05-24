@@ -79,13 +79,13 @@ func mount(c actionRunner, field schema.Field, upstream *upstreamServer, upstrea
 	}
 	upstreamOp := upstreamDoc.Operations[0]
 
-	upstreamSelections, err := getSelectedFields(upstream.schema, upstreamDoc, upstreamOp)
+	upstreamSelections, err := getSelectedFields(upstream.Schema, upstreamDoc, upstreamOp)
 	if err != nil {
 		return err
 	}
 
 	// find the result type of the upstream query.
-	var upstreamResultType schema.Type = upstream.schema.EntryPoints[upstreamOp.Type]
+	var upstreamResultType schema.Type = upstream.Schema.EntryPoints[upstreamOp.Type]
 	if upstreamResultType == nil {
 		return errors.Errorf("The upstream does not have any %s entry points", upstreamOp.Type)
 	}
@@ -165,7 +165,7 @@ func mount(c actionRunner, field schema.Field, upstream *upstreamServer, upstrea
 	})
 
 	// make sure the types of the upstream schema get added to the root schema
-	field.AddIfMissing(c.Gateway.Schema, upstream.schema)
+	field.AddIfMissing(c.Gateway.Schema, upstream.Schema)
 	for _, v := range field.Args {
 		t, err := schema.ResolveType(v.Type, c.Gateway.Schema.Resolve)
 		if err != nil {

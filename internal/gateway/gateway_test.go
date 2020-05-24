@@ -87,7 +87,7 @@ schema {
 `, engine.Schema.String())
 
 	config = gateway.Config{
-		Schema: gateway.SchemaConfig{
+		Schema: &gateway.SchemaConfig{
 			Query:        "Q",
 			Mutation:     "M",
 			Subscription: "S",

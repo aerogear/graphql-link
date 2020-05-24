@@ -68,7 +68,7 @@ func (h *ActionWrapper) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-func (f *ActionWrapper) MarshalJSON() ([]byte, error) {
+func (f ActionWrapper) MarshalJSON() ([]byte, error) {
 	if f.Action != nil {
 		typeValue := ""
 		switch f.Action.(type) {

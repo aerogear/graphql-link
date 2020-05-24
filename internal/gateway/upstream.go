@@ -54,7 +54,7 @@ func (h *UpstreamWrapper) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-func (f *UpstreamWrapper) MarshalJSON() ([]byte, error) {
+func (f UpstreamWrapper) MarshalJSON() ([]byte, error) {
 	if f.Upstream != nil {
 		typeValue := ""
 		switch f.Upstream.(type) {
@@ -68,8 +68,8 @@ func (f *UpstreamWrapper) MarshalJSON() ([]byte, error) {
 
 type GraphQLUpstream struct {
 	Upstream
-	Prefix string `json:"prefix"`
-	Suffix string `json:"suffix"`
-	URL    string `json:"url"`
-	Schema string `json:"types"`
+	Prefix string `json:"prefix,omitempty"`
+	Suffix string `json:"suffix,omitempty"`
+	URL    string `json:"url,omitempty"`
+	Schema string `json:"types,omitempty"`
 }

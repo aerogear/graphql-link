@@ -65,7 +65,7 @@ func loadEndpointSchema(config Config, upstream *upstreamServer) (*schema.Schema
 
 func downloadSchema(config Config, upstream *upstreamServer) (*schema.Schema, error) {
 
-	s, err := graphql.GetSchema(upstream.client)
+	s, err := graphql.GetSchema(upstream.Client)
 
 	// We may need to store it if it succeeded.
 	if err == nil && config.EnabledSchemaStorage {

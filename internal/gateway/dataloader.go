@@ -34,7 +34,7 @@ func (load *UpstreamDataLoader) resolution() (value reflect.Value, err error) {
 	// concurrent call to Do will wait for the first call to finish..
 	load.once.Do(func() {
 		query := load.mergedDoc.String()
-		load.response = load.upstream.client(&graphql.Request{
+		load.response = load.upstream.Client(&graphql.Request{
 			Context:   load.ctx,
 			Query:     query,
 			Variables: load.variables,

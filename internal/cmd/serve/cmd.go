@@ -2,9 +2,7 @@ package serve
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net/http"
-	"net/http/httptest"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -12,57 +10,38 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/chirino/graphql-gw/internal/cmd/config"
 	"github.com/chirino/graphql-gw/internal/cmd/root"
 	"github.com/chirino/graphql-gw/internal/gateway"
 	"github.com/chirino/graphql/graphiql"
 	"github.com/chirino/graphql/httpgql"
 	"github.com/fsnotify/fsnotify"
-	"github.com/ghodss/yaml"
-	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
 
 var (
 	Command = &cobra.Command{
-		Use:   "serve",
-		Short: "Runs the gateway service",
-		Run:   run,
+		Use:               "serve",
+		Short:             "Runs the gateway service",
+		Run:               run,
+		PersistentPreRunE: config.PreRunLoad,
 	}
-	ConfigFile = ""
 	Production = false
 )
 
 func init() {
-	Command.Flags().StringVar(&ConfigFile, "config", "graphql-gw.yaml", "path to the config file to load")
+	Command.Flags().StringVar(&config.File, "config", "graphql-gw.yaml", "path to the config file to load")
 	Command.Flags().BoolVar(&Production, "production", false, "when true, the server will not download and store schemas from remote graphql endpoints.")
 	root.Command.AddCommand(Command)
 }
 
-type Config struct {
-	gateway.Config
-	Listen    string `json:"listen"`
-	verbosity string
-	server    *httptest.Server
-}
+func run(_ *cobra.Command, _ []string) {
+	lastConfig := *config.Value
+	log := lastConfig.Log
 
-func run(cmd *cobra.Command, args []string) {
-	config := Config{}
-	config.ConfigDirectory = filepath.Dir(ConfigFile)
-	config.Log = gateway.SimpleLog
-	config.verbosity = "%v"
-	if !root.Verbose {
-		config.verbosity = "%+v\n"
-	}
-
-	lastConfig := config
-	err := readConfig(&lastConfig)
+	err := startServer(&lastConfig)
 	if err != nil {
-		config.Log.Fatalf("error reading configuration file: "+config.verbosity, err)
-	}
-
-	err = lastConfig.startServer()
-	if err != nil {
-		config.Log.Fatalf("could not start the sever: "+config.verbosity, err)
+		log.Fatalf("could not start the sever: "+root.Verbosity, err)
 	}
 
 	restartMu := sync.Mutex{}
@@ -71,34 +50,34 @@ func run(cmd *cobra.Command, args []string) {
 		defer restartMu.Unlock()
 
 		nextConfig := lastConfig
-		err := readConfig(&nextConfig)
+		err := config.Load(&nextConfig)
 		if err != nil {
-			config.Log.Fatalf("error reading configuration file: "+config.verbosity, err)
+			log.Fatalf("error reading configuration file: "+root.Verbosity, err)
 		}
 
 		// restart the server on a port change...
 		if lastConfig.Listen != nextConfig.Listen {
-			lastConfig.server.Close()
-			if err != nil {
-				config.Log.Fatalf("error occured while stopping server: "+config.verbosity, err)
-			}
+			lastConfig.Server.Close()
 
-			err = nextConfig.startServer()
+			err = startServer(&nextConfig)
 			if err != nil {
-				config.Log.Fatalf("could not start the sever: "+config.verbosity, err)
+				log.Fatalf("could not start the sever: "+root.Verbosity, err)
 			}
 		} else {
 			// Just remount a new engine on to the server...
-			nextConfig.postProcess()
-			nextConfig.mountGatewayOnHttpServer()
+			postProcess(&nextConfig)
+			err = mountGatewayOnHttpServer(&nextConfig)
+			if err != nil {
+				log.Fatalf("could not start the sever: "+root.Verbosity, err)
+			}
 		}
 
 		lastConfig = nextConfig
 	}
 
 	if !Production {
-		watchFile(ConfigFile, func(in fsnotify.Event) {
-			config.Log.Println("restarting due to configuration change:", in.Name)
+		watchFile(config.File, func(in fsnotify.Event) {
+			log.Println("restarting due to configuration change:", in.Name)
 			restart()
 		})
 
@@ -106,7 +85,7 @@ func run(cmd *cobra.Command, args []string) {
 			for {
 				changed, err := gateway.HaveUpstreamSchemaChanged(lastConfig.Config)
 				if err == nil && changed {
-					config.Log.Println("restarting due to an upstream schema change")
+					log.Println("restarting due to an upstream schema change")
 					restart()
 				}
 				time.Sleep(5 * time.Minute)
@@ -119,17 +98,17 @@ func run(cmd *cobra.Command, args []string) {
 	for {
 		switch <-sigs {
 		case syscall.SIGINT:
-			config.Log.Println("shutting down due to SIGINT signal")
-			lastConfig.server.Close()
+			log.Println("shutting down due to SIGINT signal")
+			lastConfig.Server.Close()
 			os.Exit(0)
 
 		case syscall.SIGTERM:
-			config.Log.Println("shutting down due to SIGTERM signal")
-			lastConfig.server.Close()
+			log.Println("shutting down due to SIGTERM signal")
+			lastConfig.Server.Close()
 			os.Exit(0)
 
 		case syscall.SIGHUP:
-			config.Log.Println("restarting due to SIGHUP signal")
+			log.Println("restarting due to SIGHUP signal")
 			restart()
 		}
 	}
@@ -167,33 +146,18 @@ func watchFile(filename string, onChange func(in fsnotify.Event)) (*fsnotify.Wat
 	return watcher, nil
 }
 
-func readConfig(config interface{}) error {
-	file, err := ioutil.ReadFile(ConfigFile)
-
-	if err != nil {
-		return errors.Wrapf(err, "reading config file: %s.", ConfigFile)
-	}
-
-	err = yaml.Unmarshal(file, &config)
-	if err != nil {
-		return errors.Wrapf(err, "parsing yaml of: %s.", ConfigFile)
-	}
-	return nil
-}
-
-func (config *Config) startServer() error {
-	config.postProcess()
+func startServer(config *config.Config) error {
+	postProcess(config)
 	server, err := gateway.StartHttpListener(config.Listen, http.NewServeMux())
 	if err != nil {
 		return err
 	}
-	config.server = server
-	config.mountGatewayOnHttpServer()
-	return nil
+	config.Server = server
+	return mountGatewayOnHttpServer(config)
 }
 
-func (config *Config) mountGatewayOnHttpServer() error {
-	engine, err := gateway.New(config.Config)
+func mountGatewayOnHttpServer(c *config.Config) error {
+	engine, err := gateway.New(c.Config)
 	if err != nil {
 		return err
 	}
@@ -202,17 +166,17 @@ func (config *Config) mountGatewayOnHttpServer() error {
 	if !Production {
 		gatewayHandler.Indent = "  "
 	}
-	graphqlURL := fmt.Sprintf("%s/graphql", config.server.URL)
+	graphqlURL := fmt.Sprintf("%s/graphql", c.Server.URL)
 	mux := http.NewServeMux()
 	mux.Handle("/graphql", gatewayHandler)
 	mux.Handle("/", graphiql.New(graphqlURL, true))
-	config.server.Config.Handler = mux
-	config.Log.Printf("GraphQL endpoint running at %s", graphqlURL)
-	config.Log.Printf("GraphQL UI running at %s", config.server.URL)
+	c.Server.Config.Handler = mux
+	config.Value.Log.Printf("GraphQL endpoint running at %s", graphqlURL)
+	config.Value.Log.Printf("GraphQL UI running at %s", c.Server.URL)
 	return nil
 }
 
-func (config *Config) postProcess() {
+func postProcess(config *config.Config) {
 	// Let's only apply the env expansion to the URLs for now.
 	// We don't want to run it on queries which can have $var expressions
 	// in them.

@@ -11,8 +11,14 @@ var (
 	Command = &cobra.Command{
 		Use:   "graphql-gw",
 		Short: "A GraphQL composition gateway",
+		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			if !Verbose {
+				Verbosity = "%+v"
+			}
+		},
 	}
-	Verbose = false
+	Verbose   = false
+	Verbosity = "%v"
 )
 
 func init() {
@@ -21,11 +27,7 @@ func init() {
 
 func Main() {
 	if err := Command.Execute(); err != nil {
-		if Verbose {
-			fmt.Printf("%+v\n", err)
-		} else {
-			fmt.Printf("%v\n", err)
-		}
+		fmt.Printf(Verbosity+"\n", err)
 		os.Exit(1)
 	}
 }

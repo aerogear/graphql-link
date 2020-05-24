@@ -25,19 +25,19 @@ type TypeConfig struct {
 }
 
 type SchemaConfig struct {
-	Query        string `json:"query"`
-	Mutation     string `json:"mutation"`
-	Subscription string `json:"subscription"`
+	Query        string `json:"query,omitempty"`
+	Mutation     string `json:"mutation,omitempty"`
+	Subscription string `json:"subscription,omitempty"`
 }
 
 type Config struct {
 	ConfigDirectory        string                     `json:"-"`
 	Log                    *log.Logger                `json:"-"`
-	DisableSchemaDownloads bool                       `json:"disable-schema-downloads"`
-	EnabledSchemaStorage   bool                       `json:"enable-schema-storage"`
+	DisableSchemaDownloads bool                       `json:"disable-schema-downloads,omitempty"`
+	EnabledSchemaStorage   bool                       `json:"enable-schema-storage,omitempty"`
 	Upstreams              map[string]UpstreamWrapper `json:"upstreams"`
-	Schema                 SchemaConfig
-	Types                  []TypeConfig `json:"types"`
+	Schema                 *SchemaConfig              `json:"schema,omitempty"`
+	Types                  []TypeConfig               `json:"types"`
 }
 
 var validGraphQLIdentifierRegex = regexp.MustCompile(`^[A-Za-z_][A-Za-z_0-9]*$`)
@@ -95,23 +95,25 @@ type Subscription {}
 	}
 
 	// To support configuring the names of the root types.
-	gateway.Schema.RenameTypes(func(n string) string {
-		switch n {
-		case "Query":
-			if config.Schema.Query != "" {
-				return config.Schema.Query
+	if config.Schema != nil {
+		gateway.Schema.RenameTypes(func(n string) string {
+			switch n {
+			case "Query":
+				if config.Schema.Query != "" {
+					return config.Schema.Query
+				}
+			case "Mutation":
+				if config.Schema.Mutation != "" {
+					return config.Schema.Mutation
+				}
+			case "Subscription":
+				if config.Schema.Subscription != "" {
+					return config.Schema.Subscription
+				}
 			}
-		case "Mutation":
-			if config.Schema.Mutation != "" {
-				return config.Schema.Mutation
-			}
-		case "Subscription":
-			if config.Schema.Subscription != "" {
-				return config.Schema.Subscription
-			}
-		}
-		return n
-	})
+			return n
+		})
+	}
 
 	if err != nil {
 		panic(err)
@@ -122,32 +124,12 @@ type Subscription {}
 
 	for eid, upstream := range upstreams {
 		original, err := loadEndpointSchema(config, upstream)
-
-		// TODO: implement schema.DeepCopy()
-		merged := schema.New()
-		err = merged.Parse(original.String())
-		if err != nil {
-			panic(err)
-		}
-
 		if err != nil {
 			return nil, err
 		}
 
-		for k, v := range merged.Types {
-			upstream.originalNames[k] = v
-		}
-		if upstream.info.Prefix != "" {
-			merged.RenameTypes(func(x string) string { return upstream.info.Prefix + x })
-		}
-		if upstream.info.Suffix != "" {
-			merged.RenameTypes(func(x string) string { return x + upstream.info.Suffix })
-		}
-		upstreams[eid].schema = merged
-		upstreams[eid].originalSchema = original
-		for n, t := range upstream.originalNames {
-			upstream.gatewayToUpstreamTypeNames[t.TypeName()] = n
-		}
+		upstreams[eid].RenameTypes(original)
+
 	}
 
 	actionRunner := actionRunner{
@@ -200,24 +182,30 @@ func createUpstreams(config Config) map[string]*upstreamServer {
 	for upstreamId, upstream := range config.Upstreams {
 		switch upstream := upstream.Upstream.(type) {
 		case *GraphQLUpstream:
-			c := httpgql.NewClient(upstream.URL)
-			c.HTTPClient = &http.Client{
-				Transport: proxyTransport(0),
-			}
-			upstreams[upstreamId] = &upstreamServer{
-				id:                         upstreamId,
-				client:                     c.ServeGraphQL,
-				subscriptionClient:         c.ServeGraphQLStream,
-				originalNames:              map[string]schema.NamedType{},
-				gatewayToUpstreamTypeNames: map[string]string{},
-				info:                       *upstream,
-				schema:                     nil,
-			}
+			u := CreateUpstreamServer(upstreamId, upstream)
+			upstreams[upstreamId] = u
 		default:
 			panic("invalid upstream type")
 		}
 	}
 	return upstreams
+}
+
+func CreateUpstreamServer(id string, upstream *GraphQLUpstream) *upstreamServer {
+	c := httpgql.NewClient(upstream.URL)
+	c.HTTPClient = &http.Client{
+		Transport: proxyTransport(0),
+	}
+	u := &upstreamServer{
+		id:                         id,
+		Client:                     c.ServeGraphQL,
+		subscriptionClient:         c.ServeGraphQLStream,
+		originalNames:              map[string]schema.NamedType{},
+		gatewayToUpstreamTypeNames: map[string]string{},
+		info:                       *upstream,
+		Schema:                     nil,
+	}
+	return u
 }
 
 func HaveUpstreamSchemaChanged(config Config) (bool, error) {
