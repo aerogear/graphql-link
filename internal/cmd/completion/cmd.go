@@ -11,15 +11,7 @@ var (
 	Command = &cobra.Command{
 		Use:   "completion",
 		Short: "Generates bash completion scripts",
-		Long: `To load completion run
-
-. <(graphql-gw completion)
-
-To configure your bash shell to load completions for each session run:
-
-echo ". <(graphql-gw completion)" >> ~/.profile
-
-`,
+		Long:  longDescription,
 		Run: func(cmd *cobra.Command, args []string) {
 			root.Command.GenBashCompletion(os.Stdout)
 		},
