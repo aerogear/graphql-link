@@ -30,9 +30,9 @@ graphql-gw config init
 graphql-gw serve
 ```
 
-### Demo
+### Demos
 
-<iframe width="560" height="315" src="https://www.youtube.com/embed/I5AStj2csD0" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+* https://www.youtube.com/watch?v=I5AStj2csD0
 
 ## Build from source
 
