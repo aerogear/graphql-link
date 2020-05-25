@@ -1,12 +1,11 @@
 package gateway
 
 import (
-	"encoding/json"
-
 	"github.com/chirino/graphql"
 	"github.com/chirino/graphql/resolvers"
 	"github.com/chirino/graphql/schema"
 	"github.com/pkg/errors"
+	"gopkg.in/yaml.v2"
 )
 
 type actionRunner struct {
@@ -16,37 +15,21 @@ type actionRunner struct {
 	Type      *schema.Object
 }
 
-type Action struct {
-	Type string `json:"type"`
-}
-
-func (a *Action) GetAction() *Action {
-	return a
-}
-
-type actionGetter interface {
-	GetAction() *Action
-}
-
 type ActionWrapper struct {
-	Action actionGetter `json:"-"`
+	Action interface{} `yaml:"-"`
 }
 
-func (h *ActionWrapper) UnmarshalJSON(b []byte) error {
-	raw := json.RawMessage{}
-	err := json.Unmarshal(b, &raw)
+func (h *ActionWrapper) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	discriminator := struct {
+		Type string `yaml:"type"`
+	}{}
+	err := unmarshal(&discriminator)
 	if err != nil {
 		return err
 	}
 
-	a := Action{}
-	err = json.Unmarshal(raw, &a)
-	if err != nil {
-		return err
-	}
-
-	var action actionGetter
-	switch a.Type {
+	var action interface{}
+	switch discriminator.Type {
 	case "mount":
 		action = &Mount{}
 	case "rename":
@@ -59,19 +42,15 @@ func (h *ActionWrapper) UnmarshalJSON(b []byte) error {
 		return errors.New("invalid action type")
 	}
 
-	err = json.Unmarshal(raw, action)
-	if err != nil {
-		return err
-	}
-
+	unmarshal(action)
 	h.Action = action
 	return nil
 }
 
-func (f ActionWrapper) MarshalJSON() ([]byte, error) {
-	if f.Action != nil {
-		typeValue := ""
-		switch f.Action.(type) {
+func (h ActionWrapper) MarshalYAML() (interface{}, error) {
+	typeValue := ""
+	if h.Action != nil {
+		switch h.Action.(type) {
 		case *Mount:
 			typeValue = "mount"
 		case *Rename:
@@ -81,7 +60,21 @@ func (f ActionWrapper) MarshalJSON() ([]byte, error) {
 		case *Remove:
 			typeValue = "remove"
 		}
-		f.Action.GetAction().Type = typeValue
 	}
-	return json.Marshal(f.Action)
+
+	marshal, err := yaml.Marshal(h.Action)
+	if err != nil {
+		return nil, err
+	}
+
+	values := yaml.MapSlice{}
+	err = yaml.Unmarshal(marshal, &values)
+	if err != nil {
+		return nil, err
+	}
+
+	result := yaml.MapSlice{
+		yaml.MapItem{Key: "type", Value: typeValue},
+	}
+	return append(result, values...), nil
 }

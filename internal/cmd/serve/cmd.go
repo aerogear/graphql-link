@@ -37,6 +37,7 @@ func init() {
 
 func run(_ *cobra.Command, _ []string) {
 	lastConfig := *config.Value
+	lastConfig.Log = gateway.TimestampedLog
 	log := lastConfig.Log
 
 	err := startServer(&lastConfig)
@@ -54,6 +55,7 @@ func run(_ *cobra.Command, _ []string) {
 		if err != nil {
 			log.Fatalf("error reading configuration file: "+root.Verbosity, err)
 		}
+		nextConfig.Log = lastConfig.Log
 
 		// restart the server on a port change...
 		if lastConfig.Listen != nextConfig.Listen {

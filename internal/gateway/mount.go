@@ -15,11 +15,10 @@ import (
 )
 
 type Mount struct {
-	Action
-	Field       string `json:"field,omitempty"`
-	Description string `json:"description,omitempty"`
-	Upstream    string `json:"upstream,omitempty"`
-	Query       string `json:"query,omitempty"`
+	Field       string `yaml:"field,omitempty"`
+	Description string `yaml:"description,omitempty"`
+	Upstream    string `yaml:"upstream,omitempty"`
+	Query       string `yaml:"query,omitempty"`
 }
 
 func (c actionRunner) mount(action *Mount) error {

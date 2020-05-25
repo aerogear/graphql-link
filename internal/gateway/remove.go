@@ -6,8 +6,7 @@ import (
 )
 
 type Remove struct {
-	Action
-	Field string `json:"field"`
+	Field string `yaml:"field,omitempty"`
 }
 
 func (c actionRunner) remove(action *Remove) error {

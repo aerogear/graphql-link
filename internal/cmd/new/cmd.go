@@ -2,11 +2,11 @@ package new
 
 import (
 	"io/ioutil"
-	"log"
 	"os"
 	"path/filepath"
 
 	"github.com/chirino/graphql-gw/internal/cmd/root"
+	"github.com/chirino/graphql-gw/internal/gateway"
 	"github.com/spf13/cobra"
 )
 
@@ -25,6 +25,7 @@ func init() {
 }
 
 func run(cmd *cobra.Command, args []string) {
+	log := gateway.SimpleLog
 	dir := args[0]
 	os.MkdirAll(dir, 0755)
 

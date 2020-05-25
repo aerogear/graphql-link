@@ -7,15 +7,15 @@ import (
 
 	"github.com/chirino/graphql-gw/internal/cmd/root"
 	"github.com/chirino/graphql-gw/internal/gateway"
-	"github.com/ghodss/yaml"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v2"
 )
 
 type Config struct {
-	gateway.Config
-	Listen string           `json:"listen"`
-	Server *httptest.Server `json:"-"`
+	Server         *httptest.Server `yaml:"-"`
+	Listen         string           `yaml:"listen"`
+	gateway.Config `yaml:"-,inline"`
 }
 
 var (

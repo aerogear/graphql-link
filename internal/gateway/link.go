@@ -6,12 +6,11 @@ import (
 )
 
 type Link struct {
-	Action
-	Field       string            `json:"field"`
-	Description string            `json:"description"`
-	Upstream    string            `json:"upstream"`
-	Query       string            `json:"query"`
-	Vars        map[string]string `json:"vars"`
+	Field       string            `yaml:"field,omitempty"`
+	Description string            `yaml:"description,omitempty"`
+	Upstream    string            `yaml:"upstream,omitempty"`
+	Query       string            `yaml:"query,omitempty"`
+	Vars        map[string]string `yaml:"vars,omitempty"`
 }
 
 func (c actionRunner) link(action *Link) error {

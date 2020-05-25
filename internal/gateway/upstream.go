@@ -1,42 +1,25 @@
 package gateway
 
 import (
-	"encoding/json"
-
 	"github.com/pkg/errors"
+	"gopkg.in/yaml.v2"
 )
 
-type Upstream struct {
-	Type string `json:"type"`
-}
-
-func (a *Upstream) GetUpstream() *Upstream {
-	return a
-}
-
-type upstreamGetter interface {
-	GetUpstream() *Upstream
-}
-
 type UpstreamWrapper struct {
-	Upstream upstreamGetter `json:"-"`
+	Upstream interface{} `yaml:"-"`
 }
 
-func (h *UpstreamWrapper) UnmarshalJSON(b []byte) error {
-	raw := json.RawMessage{}
-	err := json.Unmarshal(b, &raw)
+func (h *UpstreamWrapper) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	discriminator := struct {
+		Type string `yaml:"type"`
+	}{}
+	err := unmarshal(&discriminator)
 	if err != nil {
 		return err
 	}
 
-	a := Upstream{}
-	err = json.Unmarshal(raw, &a)
-	if err != nil {
-		return err
-	}
-
-	var upstream upstreamGetter
-	switch a.Type {
+	var upstream interface{}
+	switch discriminator.Type {
 	case "":
 		upstream = &GraphQLUpstream{}
 	case "graphql":
@@ -45,31 +28,41 @@ func (h *UpstreamWrapper) UnmarshalJSON(b []byte) error {
 		return errors.New("invalid action type")
 	}
 
-	err = json.Unmarshal(raw, upstream)
-	if err != nil {
-		return err
-	}
-
+	unmarshal(upstream)
 	h.Upstream = upstream
 	return nil
 }
 
-func (f UpstreamWrapper) MarshalJSON() ([]byte, error) {
-	if f.Upstream != nil {
-		typeValue := ""
-		switch f.Upstream.(type) {
+func (h UpstreamWrapper) MarshalYAML() (interface{}, error) {
+	typeValue := ""
+	if h.Upstream != nil {
+		switch h.Upstream.(type) {
 		case *GraphQLUpstream:
 			typeValue = "graphql"
 		}
-		f.Upstream.GetUpstream().Type = typeValue
 	}
-	return json.Marshal(f.Upstream)
+
+	marshal, err := yaml.Marshal(h.Upstream)
+	if err != nil {
+		return nil, err
+	}
+
+	values := yaml.MapSlice{}
+	err = yaml.Unmarshal(marshal, &values)
+	if err != nil {
+		return nil, err
+	}
+
+	result := yaml.MapSlice{
+		yaml.MapItem{Key: "type", Value: typeValue},
+	}
+	return append(result, values...), nil
+
 }
 
 type GraphQLUpstream struct {
-	Upstream
-	Prefix string `json:"prefix,omitempty"`
-	Suffix string `json:"suffix,omitempty"`
-	URL    string `json:"url,omitempty"`
-	Schema string `json:"types,omitempty"`
+	URL    string `yaml:"url,omitempty"`
+	Prefix string `yaml:"prefix,omitempty"`
+	Suffix string `yaml:"suffix,omitempty"`
+	Schema string `yaml:"types,omitempty"`
 }

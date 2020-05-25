@@ -11,9 +11,9 @@ import (
 	"github.com/chirino/graphql-gw/internal/gateway/examples/characters"
 	"github.com/chirino/graphql-gw/internal/gateway/examples/starwars_characters"
 	"github.com/chirino/graphql/httpgql"
-	"github.com/ghodss/yaml"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v2"
 )
 
 var ctx = context.Background()

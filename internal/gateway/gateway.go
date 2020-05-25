@@ -20,24 +20,24 @@ import (
 )
 
 type TypeConfig struct {
-	Name    string          `json:"name"`
-	Actions []ActionWrapper `json:"actions"`
+	Name    string          `yaml:"name,omitempty"`
+	Actions []ActionWrapper `yaml:"actions,omitempty"`
 }
 
 type SchemaConfig struct {
-	Query        string `json:"query,omitempty"`
-	Mutation     string `json:"mutation,omitempty"`
-	Subscription string `json:"subscription,omitempty"`
+	Query        string `yaml:"query,omitempty"`
+	Mutation     string `yaml:"mutation,omitempty"`
+	Subscription string `yaml:"subscription,omitempty"`
 }
 
 type Config struct {
-	ConfigDirectory        string                     `json:"-"`
-	Log                    *log.Logger                `json:"-"`
-	DisableSchemaDownloads bool                       `json:"disable-schema-downloads,omitempty"`
-	EnabledSchemaStorage   bool                       `json:"enable-schema-storage,omitempty"`
-	Upstreams              map[string]UpstreamWrapper `json:"upstreams"`
-	Schema                 *SchemaConfig              `json:"schema,omitempty"`
-	Types                  []TypeConfig               `json:"types"`
+	ConfigDirectory        string                     `yaml:"-"`
+	Log                    *log.Logger                `yaml:"-"`
+	DisableSchemaDownloads bool                       `yaml:"disable-schema-downloads,omitempty"`
+	EnabledSchemaStorage   bool                       `yaml:"enable-schema-storage,omitempty"`
+	Upstreams              map[string]UpstreamWrapper `yaml:"upstreams"`
+	Schema                 *SchemaConfig              `yaml:"schema,omitempty"`
+	Types                  []TypeConfig               `yaml:"types"`
 }
 
 var validGraphQLIdentifierRegex = regexp.MustCompile(`^[A-Za-z_][A-Za-z_0-9]*$`)

@@ -6,9 +6,8 @@ import (
 )
 
 type Rename struct {
-	Action
-	Field string `json:"field"`
-	To    string `json:"to"`
+	Field string `yaml:"field,omitempty"`
+	To    string `yaml:"to,omitempty"`
 }
 
 func (c actionRunner) rename(action *Rename) error {
