@@ -3,6 +3,7 @@ package new
 import (
 	"io/ioutil"
 	"path/filepath"
+	"strings"
 
 	"github.com/chirino/graphql-gw/internal/cmd/config"
 	"github.com/chirino/graphql-gw/internal/cmd/root"
@@ -14,12 +15,13 @@ import (
 
 var (
 	Command = &cobra.Command{
-		Use:   "mount [upstream] [type]",
-		Short: "mount an upstream into the gateway schema",
-		Args:  cobra.ExactArgs(2),
+		Use:   "link [upstream] [type] [field]",
+		Short: "link an upstream into the gateway schema",
+		Args:  cobra.ExactArgs(3),
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			upstream = args[0]
 			schemaType = args[1]
+			field = args[2]
 			return config.PreRunLoad(cmd, args)
 		},
 		Run: run,
@@ -29,12 +31,13 @@ var (
 	schemaType  string
 	field       string
 	description string
+	vars        []string
 )
 
 func init() {
-	Command.Flags().StringVar(&query, "query", "query {}", "a partial graphql query what the root path to mount from the upstream server")
-	Command.Flags().StringVar(&field, "field", "", "field name to mount onto, if none, then all child fields of the query get mounted")
 	Command.Flags().StringVar(&description, "description", "", "description to add to the field (shown when introspected)")
+	Command.Flags().StringSliceVar(&vars, "var", []string{}, "variable fields to extract from the current type in '$[name]=[query]' format")
+	Command.Flags().StringVar(&query, "query", "query {}", "a partial graphql query what the root path to mount from the upstream server")
 	config.Command.AddCommand(Command)
 }
 
@@ -62,6 +65,21 @@ func run(_ *cobra.Command, _ []string) {
 		log.Fatalf("gateway does not curretly have type named: %s", schemaType)
 	}
 
+	varMap := map[string]string{}
+	for _, s := range vars {
+		parts := strings.SplitN(s, "=", 1)
+		if len(parts) != 2 {
+			log.Fatalf("invalid --var syntax '%s'", s)
+		}
+
+		document := schema.QueryDocument{}
+		err := document.ParseWithDescriptions(parts[1])
+		if err != nil {
+			log.Fatalf("invalid --var query "+root.Verbosity, err)
+		}
+		varMap[parts[0]] = parts[1]
+	}
+
 	byName := map[string]*gateway.TypeConfig{}
 	for _, t := range c.Types {
 		existing := byName[t.Name]
@@ -79,11 +97,12 @@ func run(_ *cobra.Command, _ []string) {
 	}
 
 	existing.Actions = append(existing.Actions, gateway.ActionWrapper{
-		Action: &gateway.Mount{
+		Action: &gateway.Link{
 			Field:       field,
 			Description: description,
 			Upstream:    upstream,
 			Query:       query,
+			Vars:        varMap,
 		},
 	})
 
