@@ -1,10 +1,10 @@
-package new
+package init
 
 import (
 	"io/ioutil"
 	"os"
-	"path/filepath"
 
+	"github.com/chirino/graphql-gw/internal/cmd/config"
 	"github.com/chirino/graphql-gw/internal/cmd/root"
 	"github.com/chirino/graphql-gw/internal/gateway"
 	"github.com/spf13/cobra"
@@ -12,25 +12,27 @@ import (
 
 var (
 	Command = &cobra.Command{
-		Use:   "new",
-		Short: "creates a new project with default config",
-		Run:   run,
-		Args:  cobra.ExactArgs(1),
+		Use:   "init",
+		Short: "creates the gateway default configuration file",
+		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			// to override the PersistentPreRun in the config.Command
+		},
+		Run: run,
 	}
-	ConfigFile = ""
 )
 
 func init() {
-	root.Command.AddCommand(Command)
+	config.Command.AddCommand(Command)
 }
 
-func run(cmd *cobra.Command, args []string) {
+func run(_ *cobra.Command, _ []string) {
 	log := gateway.SimpleLog
-	dir := args[0]
-	os.MkdirAll(dir, 0755)
 
-	configFile := filepath.Join(dir, "graphql-gw.yaml")
-	err := ioutil.WriteFile(configFile, []byte(`# ------------------------------------------------
+	if _, err := os.Stat(config.File); err == nil {
+		log.Fatalf("error: file exists %s", config.File)
+	}
+
+	err := ioutil.WriteFile(config.File, []byte(`# ------------------------------------------------
 # graphql-gw config docs: https://bit.ly/2L5TgyB
 # ------------------------------------------------
 listen: localhost:8080
@@ -99,17 +101,17 @@ listen: localhost:8080
 #      - type: mount
 #        upstream: anilist
 #        query: mutation {}
-
 `), 0644)
 
 	if err != nil {
-		log.Fatalf("%+v", err)
+		log.Fatalf(root.Verbosity, err)
 	}
 
-	log.Printf(`Project created in the '%s' directory.`, dir)
-	log.Printf(`Edit '%s' and then run:`, configFile)
 	log.Println()
-	log.Println(`    cd`, dir)
+	log.Println(`Created: `, config.File)
+	log.Println()
+	log.Println(`Start the gateway by running:`)
+	log.Println()
 	log.Println(`    graphql-gw serve`)
 	log.Println()
 }

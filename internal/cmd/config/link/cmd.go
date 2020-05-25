@@ -67,13 +67,13 @@ func run(_ *cobra.Command, _ []string) {
 
 	varMap := map[string]string{}
 	for _, s := range vars {
-		parts := strings.SplitN(s, "=", 1)
+		parts := strings.SplitN(s, "=", 2)
 		if len(parts) != 2 {
 			log.Fatalf("invalid --var syntax '%s'", s)
 		}
 
 		document := schema.QueryDocument{}
-		err := document.ParseWithDescriptions(parts[1])
+		err := document.ParseWithDescriptions("{" + parts[1] + "}")
 		if err != nil {
 			log.Fatalf("invalid --var query "+root.Verbosity, err)
 		}
@@ -117,5 +117,5 @@ func run(_ *cobra.Command, _ []string) {
 	if err != nil {
 		log.Fatalf(root.Verbosity, err)
 	}
-	log.Printf(`mount added`)
+	log.Printf(`link added`)
 }
