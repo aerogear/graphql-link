@@ -23,15 +23,16 @@ GraphQL upstream servers.
 
 ## Getting started
 
-Run
+Running
 
 ```
-graphql-gw new myproject
-cd myproject
-# edit myproject/graphql-gw.yaml to configure
-# the gateway
+graphql-gw config init
 graphql-gw serve
 ```
+
+### Demo
+
+<iframe width="560" height="315" src="https://www.youtube.com/embed/I5AStj2csD0" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
 
 ## Build from source
 
@@ -40,6 +41,7 @@ go build -o=graphql-gw main.go
 ```
 
 ### Usage
+
 
 `$ graphql-gw --help`
 
