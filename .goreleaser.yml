@@ -13,18 +13,11 @@ builds:
     goarch:
       - 386
       - amd64
-      - arm
-      - arm64
-    goarm:
-      - 6
-      - 7
 archives:
   - replacements:
       darwin: mac
       386: 32bit-x86
       amd64: 64bit-x86
-      arm: 32bit-arm
-      arm64: 64bit-arm
 
     format_overrides:
       - goos: windows
