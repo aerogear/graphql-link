@@ -1,12 +1,20 @@
-import Settings from './pages/Settings';
+import Upstreams from './pages/Upstreams';
+import Schema from './pages/Schema';
 
 export default [
     {
-        component: Settings,
+        component: Upstreams,
         exact: true,
-        label: 'Settings',
+        label: 'Upstream Servers',
+        title: 'GraphQL Gateway | Upstream Servers',
         path: '/',
-        title: 'GraphQL Gateway',
+    },
+    {
+        component: Schema,
+        exact: true,
+        label: 'Gateway Schema',
+        title: 'GraphQL Gateway | Schema',
+        path: '/schema',
     },
     // {
     //   component: Support,

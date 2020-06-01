@@ -1,11 +1,10 @@
-import { Alert, PageSection } from '@patternfly/react-core';
 import * as React from 'react';
-import { Route, Switch } from 'react-router-dom';
-import { LastLocationProvider, useLastLocation } from 'react-router-last-location';
+import {Route, Switch} from 'react-router-dom';
+import {LastLocationProvider, useLastLocation} from 'react-router-last-location';
 
-import { NotFound } from '../pages/NotFound';
+import {NotFound} from '../pages/NotFound';
 import routes from '../routes';
-import { accessibleRouteChangeHandler, useDocumentTitle } from '../utils';
+import {accessibleRouteChangeHandler, useDocumentTitle} from '../utils';
 
 // const getSupportModuleAsync = () => () => import(/* webpackChunkName: 'support' */ '@app/Support/Support');
 // const Support = (routeProps) => {
