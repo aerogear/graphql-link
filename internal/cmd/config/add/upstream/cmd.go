@@ -13,7 +13,6 @@ import (
 	"github.com/chirino/graphql-gw/internal/gateway"
 	"github.com/chirino/graphql/schema"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v2"
 )
 
 var (
@@ -113,15 +112,11 @@ func run(cmd *cobra.Command, args []string) {
 	}
 
 	// Update the config
-
 	c.Upstreams[upstreamName] = gateway.UpstreamWrapper{Upstream: upstream}
 
-	configYml, err := yaml.Marshal(&c)
-	configFile := filepath.Join("./", config.File)
-	err = ioutil.WriteFile(configFile, configYml, 0644)
+	err = config.Store(*c)
 	if err != nil {
 		log.Fatalf(root.Verbosity, err)
 	}
-
 	log.Printf(`upstream added`)
 }

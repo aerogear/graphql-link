@@ -62,3 +62,16 @@ func Load(config *Config) error {
 
 	return nil
 }
+
+func Store(config Config) error {
+	configYml, err := yaml.Marshal(&config)
+	if err != nil {
+		return err
+	}
+
+	err = ioutil.WriteFile(File, configYml, 0644)
+	if err != nil {
+		return err
+	}
+	return nil
+}
