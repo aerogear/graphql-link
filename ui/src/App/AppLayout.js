@@ -1,11 +1,11 @@
-import { Nav, NavItem, NavList, Page, PageHeader, PageSidebar, SkipToContent } from '@patternfly/react-core';
+import {Nav, NavItem, NavList, Page, PageHeader, PageSidebar, SkipToContent} from '@patternfly/react-core';
 import * as React from 'react';
-import { NavLink } from 'react-router-dom';
+import {NavLink} from 'react-router-dom';
 
 import routes from '../routes';
 
 export default (props) => {
-    
+
   const logoProps = {
     href: '/',
     target: '_blank'
@@ -36,10 +36,10 @@ export default (props) => {
     <Nav id="nav-primary-simple" theme="dark">
       <NavList id="nav-list-simple">
         {routes.map((route, idx) => route.label && (
-            <NavItem key={`${route.label}-${idx}`} id={`${route.label}-${idx}`}>
-              <NavLink exact to={route.path} activeClassName="pf-m-current">{route.label}</NavLink>
-            </NavItem>
-          ))}
+          <NavItem key={`${route.label}-${idx}`} id={`${route.label}-${idx}`}>
+            <NavLink exact to={route.path} activeClassName="pf-m-current">{route.label}</NavLink>
+          </NavItem>
+        ))}
       </NavList>
     </Nav>
   );
@@ -47,13 +47,14 @@ export default (props) => {
     <PageSidebar
       theme="dark"
       nav={Navigation}
-      isNavOpen={isMobileView ? isNavOpenMobile : isNavOpen} />
+      isNavOpen={isMobileView ? isNavOpenMobile : isNavOpen}/>
   );
   const PageSkipToContent = (
     <SkipToContent href="#primary-app-container">
       Skip to Content
     </SkipToContent>
   );
+
   return (
     <Page
       mainContainerId="primary-app-container"
@@ -61,7 +62,9 @@ export default (props) => {
       sidebar={Sidebar}
       onPageResize={onPageResize}
       skipToContent={PageSkipToContent}>
-      {props.children}
+      {/*<div style={{background: "white"}}>*/}
+        {props.children}
+      {/*</div>*/}
     </Page>
   );
 }

@@ -125,7 +125,9 @@ type Subscription {}
 	for eid, upstream := range upstreams {
 		original, err := loadEndpointSchema(config, upstream)
 		if err != nil {
-			return nil, err
+			log.Printf("%v", err)
+			continue
+			//return nil, err
 		}
 
 		upstreams[eid].RenameTypes(original)
@@ -149,22 +151,30 @@ type Subscription {}
 				case *Mount:
 					err := actionRunner.mount(action)
 					if err != nil {
-						return nil, err
+						log.Printf("%v", err)
+						continue
+						//return nil, err
 					}
 				case *Link:
 					err := actionRunner.link(action)
 					if err != nil {
-						return nil, err
+						log.Printf("%v", err)
+						continue
+						//return nil, err
 					}
 				case *Rename:
 					err := actionRunner.rename(action)
 					if err != nil {
-						return nil, err
+						log.Printf("%v", err)
+						continue
+						//return nil, err
 					}
 				case *Remove:
 					err := actionRunner.remove(action)
 					if err != nil {
-						return nil, err
+						log.Printf("%v", err)
+						continue
+						//return nil, err
 					}
 				}
 

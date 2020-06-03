@@ -173,6 +173,12 @@ func mount(c actionRunner, field schema.Field, upstream *upstreamServer, upstrea
 		v.Type = t
 	}
 
+	if c.Gateway.Schema.Types[c.Type.Name] == nil {
+		c.Gateway.Schema.Types[c.Type.Name] = &schema.Object{
+			Name:           c.Type.Name,
+		}
+	}
+
 	mountType := c.Gateway.Schema.Types[c.Type.Name].(*schema.Object)
 	existingField := mountType.Fields.Get(field.Name)
 	if existingField == nil {

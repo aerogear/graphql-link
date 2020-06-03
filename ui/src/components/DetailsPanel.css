@@ -1,0 +1,21 @@
+.details-div {
+  z-index: 100;
+  position: fixed;
+
+  width: 480px;
+  right: 0;
+
+  height: calc( 100vh - 76px);
+  top: 76px;
+}
+
+.details-div .pf-c-drawer__content {
+  background: none;
+}
+.details-div .pf-c-drawer__panel {
+  margin-left: 20px;
+  --pf-c-drawer__panel--BoxShadow: var(--pf-c-drawer--m-expanded__panel--BoxShadow);
+}
+.details-div .pf-c-drawer {
+  --pf-c-drawer__panel--md--FlexBasis: 100%;
+}

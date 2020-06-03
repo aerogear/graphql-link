@@ -1,34 +1,26 @@
-import {Divider, PageSection, PageSectionVariants, Text, TextContent} from '@patternfly/react-core';
 import React from 'react';
-import UpstreamsList from "./UpstreamsList";
-import UpstreamDetails from "./UpstreamDetails";
-import ActionDetails from "./ActionDetails";
-import ActionList from "./ActionList";
-import HasDetails from "../../components/HasDetails";
+import {Redirect, Route, Switch, useRouteMatch} from "react-router-dom";
+import TypeList from "./TypeList";
+import Type from "./Type";
+import Config, {ConfigContext} from "../../components/Config";
 
 export default () => {
-  const [details, setDetails] = React.useState(null);
-
+  let match = useRouteMatch();
   return (
-    <React.Fragment>
-      <PageSection variant={PageSectionVariants.light}>
-        <TextContent>
-          <Text component="h1">Settings</Text>
-          <Text component="p"></Text>
-        </TextContent>
-      </PageSection>
-      <Divider component="div"/>
-
-      <PageSection noPadding={true}>
-        <HasDetails details={details} components={{UpstreamDetails, ActionDetails}}>
-          <UpstreamsList details={details} setDetails={setDetails}/>
-          <Divider component="div"/>
-          <br/>
-          <ActionList details={details} setDetails={setDetails}/>
-        </HasDetails>
-      </PageSection>
-
-      {/*<UpstreamsList/>*/}
-    </React.Fragment>
+    <Config>
+      <ConfigContext.Consumer>
+        {({config, onStoreConfig}) => (
+          <Switch>
+            <Route path={`${match.url}/types/:typeName`}>
+              <Type config={config} onStoreConfig={onStoreConfig}/>
+            </Route>
+            <Route path={`${match.url}`}>
+              <TypeList config={config} onStoreConfig={onStoreConfig}/>
+            </Route>
+            <Redirect to={`${match.url}`}/>
+          </Switch>
+        )}
+      </ConfigContext.Consumer>
+    </Config>
   )
 }

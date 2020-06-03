@@ -11,10 +11,10 @@ export default [
     },
     {
         component: Schema,
-        exact: true,
+        exact: false,
         label: 'Gateway Schema',
         title: 'GraphQL Gateway | Schema',
-        path: '/schema',
+        path: '/schema/',
     },
     // {
     //   component: Support,

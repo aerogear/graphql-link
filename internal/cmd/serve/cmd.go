@@ -174,9 +174,9 @@ func mountGatewayOnHttpServer(c *config.Config) error {
 	graphqlURL := fmt.Sprintf("%s/graphql", c.Server.URL)
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
-	r.Mount("/admin", admin.CreateHttpHandler())
-	r.Handle("/graphql", gatewayHandler)
 	r.Handle("/", graphiql.New(graphqlURL, true))
+	r.Handle("/graphql", gatewayHandler)
+	r.Mount("/admin", admin.CreateHttpHandler())
 	c.Server.Config.Handler = r
 	config.Value.Log.Printf("GraphQL endpoint running at %s", graphqlURL)
 	config.Value.Log.Printf("GraphQL UI running at %s", c.Server.URL)
