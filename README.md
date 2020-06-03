@@ -19,6 +19,10 @@ GraphQL upstream servers.
 
 ### Installing
 
+Please download [latest github release](https://github.com/chirino/graphql-gw/releases) for your platform
+
+### Building from source
+
 `go get -u github.com/chirino/graphql-gw`
 
 ## Getting started
