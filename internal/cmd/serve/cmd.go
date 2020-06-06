@@ -14,6 +14,7 @@ import (
 	"github.com/chirino/graphql-gw/internal/cmd/root"
 	"github.com/chirino/graphql-gw/internal/gateway"
 	"github.com/chirino/graphql-gw/internal/gateway/admin"
+	"github.com/chirino/graphql-gw/internal/gateway/admin/assets"
 	"github.com/chirino/graphql/graphiql"
 	"github.com/chirino/graphql/httpgql"
 	"github.com/fsnotify/fsnotify"
@@ -174,9 +175,10 @@ func mountGatewayOnHttpServer(c *config.Config) error {
 	graphqlURL := fmt.Sprintf("%s/graphql", c.Server.URL)
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
-	r.Handle("/", graphiql.New(graphqlURL, true))
-	r.Handle("/graphql", gatewayHandler)
+	r.Mount("/", http.FileServer(assets.FileSystem))
 	r.Mount("/admin", admin.CreateHttpHandler())
+	r.Handle("/graphql", gatewayHandler)
+	r.Handle("/graphiql", graphiql.New(graphqlURL, true))
 	c.Server.Config.Handler = r
 	config.Value.Log.Printf("GraphQL endpoint running at %s", graphqlURL)
 	config.Value.Log.Printf("GraphQL UI running at %s", c.Server.URL)

@@ -18,7 +18,6 @@ func CreateHttpHandler() http.Handler {
 
 	r.Use(middleware.Recoverer)
 	r.Use(render.SetContentType(render.ContentTypeJSON))
-
 	r.Route("/config", func(r chi.Router) {
 		r.Get("/", admin.GetConfig)
 		r.Post("/", admin.UpdateConfig)

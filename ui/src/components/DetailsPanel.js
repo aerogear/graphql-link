@@ -1,7 +1,10 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
 import './DetailsPanel.css'
-import { TimesIcon } from '@patternfly/react-icons';
+import {TimesIcon} from '@patternfly/react-icons';
+import {css} from '@patternfly/react-styles';
+import styles from "@patternfly/react-styles/css/components/Drawer/drawer";
+import {Button, Drawer} from "@patternfly/react-core";
 
 function getFreshDiv(id) {
   let el = document.getElementById(id)
@@ -12,6 +15,7 @@ function getFreshDiv(id) {
   el.id = id
   return el
 }
+
 
 const DetailsPanel = ({id, children}) => {
 
@@ -27,30 +31,28 @@ const DetailsPanel = ({id, children}) => {
   }, [id])
 
   const content = <div className="details-div">
-    <div className="pf-c-drawer pf-m-expanded">
-      <div className="pf-c-drawer__main">
-        <div className="pf-c-drawer__content">
-          <div className="pf-c-drawer__body"></div>
+    <div className={css(styles.drawer, styles.modifiers.expanded)}>
+      <div className={css(styles.drawerMain)}>
+        <div className={css(styles.drawerContent)}>
+          <div className={css(styles.drawerBody)}></div>
         </div>
-        <div className="pf-c-drawer__panel" aria-expanded="true">
-          <div className="pf-c-drawer__body">
-            <div className="pf-c-drawer__head">
+        <div className={css(styles.drawerPanel)} aria-expanded="true">
+          <div className={css(styles.drawerBody)}>
+            <div className={css(styles.drawerHead)}>
               {children}
             </div>
           </div>
         </div>
       </div>
     </div>
-</div>
+  </div>
   return ReactDOM.createPortal(content, elRef.current);
 }
 
-export const DetailsClose = ({onClick})=>{
-  return <div className="pf-c-drawer__actions">
-    <div className="pf-c-drawer__close" onClick={onClick}>
-      <button className="pf-c-button pf-m-plain" type="button" aria-label="Close drawer panel">
-        <TimesIcon/>
-      </button>
+export const DetailsClose = ({onClick}) => {
+  return <div className={css(styles.drawerActions)}>
+    <div className={css(styles.drawerClose)} onClick={onClick}>
+      <Button variant="plain"><TimesIcon/></Button>
     </div>
   </div>
 }
