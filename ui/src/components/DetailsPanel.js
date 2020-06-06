@@ -4,7 +4,7 @@ import './DetailsPanel.css'
 import {TimesIcon} from '@patternfly/react-icons';
 import {css} from '@patternfly/react-styles';
 import styles from "@patternfly/react-styles/css/components/Drawer/drawer";
-import {Button, Drawer} from "@patternfly/react-core";
+import {Button} from "@patternfly/react-core";
 
 function getFreshDiv(id) {
   let el = document.getElementById(id)

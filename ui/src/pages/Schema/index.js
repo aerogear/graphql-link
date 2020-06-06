@@ -4,7 +4,7 @@ import TypeList from "./TypeList";
 import Type from "./Type";
 import Config, {ConfigContext} from "../../components/Config";
 
-export default () => {
+const Index = () => {
   let match = useRouteMatch();
   return (
     <Config>
@@ -24,3 +24,5 @@ export default () => {
     </Config>
   )
 }
+
+export default Index

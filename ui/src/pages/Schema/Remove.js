@@ -1,7 +1,6 @@
-import {FormGroup, SelectOption, TextInput} from '@patternfly/react-core';
+import {FormGroup, TextInput} from '@patternfly/react-core';
 
 import React from 'react';
-import BetterSelect from "../../components/BetterSelect";
 import {fieldSetters} from "../../utils";
 
 const Remove = ({action, setAction}) => {

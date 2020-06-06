@@ -17,7 +17,7 @@ import {
 import ActionList from "./ActionList";
 import {Link, useHistory, useRouteMatch} from "react-router-dom";
 import ConfirmDelete from "../../components/ConfirmDelete";
-import {chain, clone, fieldSetters} from "../../utils";
+import {clone, fieldSetters} from "../../utils";
 
 const Type = ({config, onStoreConfig}) => {
 

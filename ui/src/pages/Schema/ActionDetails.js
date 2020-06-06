@@ -1,4 +1,4 @@
-import {ActionGroup, Button, Form, FormGroup, SelectOption, Switch, TextInput} from '@patternfly/react-core';
+import {ActionGroup, Button, Form, FormGroup, SelectOption} from '@patternfly/react-core';
 
 import React from 'react';
 import ConfirmDelete from "../../components/ConfirmDelete";

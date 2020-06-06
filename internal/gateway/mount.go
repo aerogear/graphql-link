@@ -175,7 +175,7 @@ func mount(c actionRunner, field schema.Field, upstream *upstreamServer, upstrea
 
 	if c.Gateway.Schema.Types[c.Type.Name] == nil {
 		c.Gateway.Schema.Types[c.Type.Name] = &schema.Object{
-			Name:           c.Type.Name,
+			Name: c.Type.Name,
 		}
 	}
 
