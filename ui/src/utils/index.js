@@ -58,24 +58,35 @@ export function useDocumentTitle(title) {
   }, [title]);
 }
 
-export function toKeyedArray(map, by = "name") {
+export function toKeyedArray(map, by = "name", value = "value") {
   const v = []
   if (map) {
     for (const key in map) {
       const item = map[key]
-      item[by] = key
-      v.push(item)
+      if (typeof (item) === "object") {
+        item[by] = key
+        v.push(item)
+      } else {
+        const c = {}
+        c[by] = key
+        c[value] = item
+        v.push(c)
+      }
     }
   }
   return v
 }
 
-export function fromKeyedArray(array, by = "name") {
+export function fromKeyedArray(array, by = "name", value = null) {
   const v = {}
   if (array) {
     for (const item of array) {
       const key = item[by]
-      v[key] = item
+      if (value === null) {
+        v[key] = item
+      } else {
+        v[key] = item[value]
+      }
     }
   }
   return v

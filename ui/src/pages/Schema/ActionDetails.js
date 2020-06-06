@@ -3,7 +3,7 @@ import {ActionGroup, Button, Form, FormGroup, SelectOption} from '@patternfly/re
 import React from 'react';
 import ConfirmDelete from "../../components/ConfirmDelete";
 import BetterSelect from "../../components/BetterSelect";
-import {clone, fieldSetters, toKeyedArray} from "../../utils";
+import {clone, fieldSetters, fromKeyedArray, toKeyedArray} from "../../utils";
 import Mount from "./Mount";
 import Rename from "./Rename";
 import Remove from "./Remove";
@@ -11,12 +11,28 @@ import Link from "./Link";
 
 const ActionDetails = ({config, onClose, actions, setActions, id}) => {
 
-  const [action, setAction] = React.useState(actions[id]);
+  const convertIn = (v) => {
+    if (v.vars) {
+      v = clone(v)
+      v.vars = toKeyedArray(v.vars, "name", "value").sort((a, b) => a.name.localeCompare(b.name))
+    }
+    return v
+  }
+
+  const convertOut = (v) => {
+    if (v.vars) {
+      v = clone(v)
+      v.vars = fromKeyedArray(v.vars, "name", "value")
+    }
+    return v
+  }
+
+  const [action, setAction] = React.useState(convertIn(actions[id]));
   const onChange = fieldSetters(action, setAction)
 
   const onSave = () => {
     const v = clone(actions)
-    v[id] = action
+    v[id] = convertOut(action)
     setActions(v)
     onClose()
   }

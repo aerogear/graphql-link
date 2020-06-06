@@ -3,13 +3,15 @@ import {FormGroup, SelectOption, TextArea, TextInput} from '@patternfly/react-co
 import React from 'react';
 import BetterSelect from "../../components/BetterSelect";
 import {fieldSetters} from "../../utils";
+import VarList from "./VarList";
 
 const Link = ({upstreams, action, setAction}) => {
 
   const onChange = fieldSetters(Object.assign({
     field: "",
     upstream: "",
-    query: ""
+    query: "",
+    vars: []
   }, action), setAction)
 
   return <React.Fragment>
@@ -37,6 +39,9 @@ const Link = ({upstreams, action, setAction}) => {
         isRequired type="text"
       />
     </FormGroup>
+
+    <VarList value={action.vars} onChange={onChange.vars}>test</VarList>
+
   </React.Fragment>
 }
 
