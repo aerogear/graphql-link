@@ -14,7 +14,8 @@
     "react-dom": "^16.13.1",
     "react-router-dom": "^5.2.0",
     "react-router-last-location": "^2.0.1",
-    "react-scripts": "3.4.1"
+    "react-scripts": "3.4.1",
+    "websocket-extensions": "^0.1.4"
   },
   "scripts": {
     "start": "npm run watch:css && react-scripts start",
