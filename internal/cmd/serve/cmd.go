@@ -175,13 +175,19 @@ func mountGatewayOnHttpServer(c *config.Config) error {
 	graphqlURL := fmt.Sprintf("%s/graphql", c.Server.URL)
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
-	r.Mount("/", http.FileServer(assets.FileSystem))
-	r.Mount("/admin", admin.CreateHttpHandler())
+	if !Production {
+		r.Mount("/", http.FileServer(assets.FileSystem))
+		r.Mount("/admin", admin.CreateHttpHandler())
+	}
 	r.Handle("/graphql", gatewayHandler)
 	r.Handle("/graphiql", graphiql.New(graphqlURL, true))
 	c.Server.Config.Handler = r
-	config.Value.Log.Printf("GraphQL endpoint running at %s", graphqlURL)
-	config.Value.Log.Printf("GraphQL UI running at %s", c.Server.URL)
+	c.Config.Log.Printf("GraphQL endpoint is running at %s", graphqlURL)
+	if Production {
+		c.Config.Log.Printf("Gateway GraphQL IDE is running at %s/graphiql", c.Server.URL)
+	} else {
+		c.Config.Log.Printf("Gateway Admin UI and GraphQL IDE is running at %s", c.Server.URL)
+	}
 	return nil
 }
 
