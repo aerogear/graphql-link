@@ -10,6 +10,8 @@ github.com/beorn7/perks v1.0.0/go.mod h1:KWe93zE9D1o94FZ5RNwFwVgaQK1VOXiVxmqh+Ce
 github.com/cespare/xxhash v1.1.0/go.mod h1:XrSqR1VqqWfGrhpAt58auRo0WTKS1nRRg3ghfAqPWnc=
 github.com/chirino/graphql v0.0.0-20200523142529-5ceea4b22455 h1:fk72u2BTvJhhdiEOE3iLGL2SwqbV2B9gzQakytRTs+E=
 github.com/chirino/graphql v0.0.0-20200523142529-5ceea4b22455/go.mod h1:QJryzmxY+8v+nP7+HjPsMxT4q+tfZZq387ZdG0md+kU=
+github.com/chirino/graphql v0.0.0-20200608130257-d6eac806bad6 h1:rBfH7Qik4cRCZdhZcu7S8UVM1jO8fYEW7Gal7yx6bYE=
+github.com/chirino/graphql v0.0.0-20200608130257-d6eac806bad6/go.mod h1:QJryzmxY+8v+nP7+HjPsMxT4q+tfZZq387ZdG0md+kU=
 github.com/chirino/hawtgo v0.0.1 h1:BwUkArpv32ZDK5QFnG1RysagrKe82TsagXxi2Ys2flA=
 github.com/chirino/hawtgo v0.0.1/go.mod h1:dBjLrMrxLZHJ3iB47gQ9kEftlBlPefp34AU6wA4rAg4=
 github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=

@@ -29,6 +29,28 @@ func (p proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		if value != nil {
 			originalRequest := value.(*http.Request)
 
+			for k, headers := range originalRequest.Header {
+				switch k {
+
+				// Hop-by-hop headers... Don't forward these.
+				// http://www.w3.org/Protocols/rfc2616/rfc2616-sec13.html
+				case "Connection":
+				case "Keep-Alive":
+				case "Proxy-Authenticate":
+				case "Proxy-Authorization":
+				case "Te":
+				case "Trailers":
+				case "Transfer-Encoding":
+				case "Upgrade":
+
+				default:
+					// Copy over any other headers..
+					for _, header := range headers {
+						req.Header.Add(k, header)
+					}
+				}
+			}
+
 			if clientIP, _, err := net.SplitHostPort(originalRequest.RemoteAddr); err == nil {
 				if prior, ok := originalRequest.Header["X-Forwarded-For"]; ok {
 					clientIP = strings.Join(prior, ", ") + ", " + clientIP
@@ -49,6 +71,7 @@ func (p proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 					req.Header.Set("X-Forwarded-Proto", "http")
 				}
 			}
+
 		}
 
 	}

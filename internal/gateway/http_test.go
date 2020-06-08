@@ -86,6 +86,68 @@ query  {
 	assert.Equal(t, `http`, value)
 }
 
+func TestCustomClientHeadersArePassedThrough(t *testing.T) {
+
+	charactersEngine := characters.New()
+
+	h := &testHandler{Handler: &httpgql.Handler{ServeGraphQLStream: charactersEngine.ServeGraphQLStream}}
+	charactersServer := httptest.NewServer(h)
+	defer charactersServer.Close()
+
+	config := createCharactersPassthroughConfig()
+	config.Upstreams["characters"].Upstream.(*gateway.GraphQLUpstream).URL = charactersServer.URL
+	gw, err := gateway.New(config)
+	require.NoError(t, err)
+	gatewayServer := httptest.NewServer(gateway.CreateHttpHandler(gw.ServeGraphQLStream))
+	defer gatewayServer.Close()
+
+	client := httpgql.NewClient(gatewayServer.URL)
+	client.RequestHeader.Set("Custom", "Hello World")
+
+	actual := map[string]interface{}{}
+	graphql.Exec(client.ServeGraphQL, context.Background(), &actual, `
+query  {
+    characters {
+      id
+    }
+}`)
+
+	request := h.GetLastRequest()
+	value := request.Header.Get("Custom")
+	assert.Equal(t, `Hello World`, value)
+}
+
+func TestSingleHopHeadersAreNotPassedThrough(t *testing.T) {
+
+	charactersEngine := characters.New()
+
+	h := &testHandler{Handler: &httpgql.Handler{ServeGraphQLStream: charactersEngine.ServeGraphQLStream}}
+	charactersServer := httptest.NewServer(h)
+	defer charactersServer.Close()
+
+	config := createCharactersPassthroughConfig()
+	config.Upstreams["characters"].Upstream.(*gateway.GraphQLUpstream).URL = charactersServer.URL
+	gw, err := gateway.New(config)
+	require.NoError(t, err)
+	gatewayServer := httptest.NewServer(gateway.CreateHttpHandler(gw.ServeGraphQLStream))
+	defer gatewayServer.Close()
+
+	client := httpgql.NewClient(gatewayServer.URL)
+	client.RequestHeader.Set("Proxy-Authenticate", "Hello World")
+
+	actual := map[string]interface{}{}
+	graphql.Exec(client.ServeGraphQL, context.Background(), &actual, `
+query  {
+    characters {
+      id
+    }
+}`)
+
+	request := h.GetLastRequest()
+	value := request.Header.Get("Custom")
+	assert.Equal(t, ``, value)
+}
+
 func createCharactersPassthroughConfig() gateway.Config {
 	return gateway.Config{
 		Upstreams: map[string]gateway.UpstreamWrapper{

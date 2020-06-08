@@ -1,7 +1,7 @@
 module github.com/chirino/graphql-gw
 
 require (
-	github.com/chirino/graphql v0.0.0-20200523142529-5ceea4b22455
+	github.com/chirino/graphql v0.0.0-20200608130257-d6eac806bad6
 	github.com/chirino/hawtgo v0.0.1
 	github.com/fsnotify/fsnotify v1.4.7
 	github.com/ghodss/yaml v1.0.0
