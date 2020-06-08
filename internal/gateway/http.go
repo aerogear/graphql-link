@@ -43,6 +43,13 @@ func (p proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 				case "Transfer-Encoding":
 				case "Upgrade":
 
+				// Skip these headers which could affect our connection
+				// to the upstream:
+				case "Accept-Encoding":
+				case "Sec-Websocket-Version":
+				case "Sec-Websocket-Protocol":
+				case "Sec-Websocket-Extensions":
+				case "Sec-Websocket-Key":
 				default:
 					// Copy over any other headers..
 					for _, header := range headers {

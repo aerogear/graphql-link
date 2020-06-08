@@ -4,7 +4,7 @@ import {
   DataListCell,
   DataListItem,
   DataListItemCells,
-  DataListItemRow,
+  DataListItemRow, EmptyState,
   Flex,
   FlexItem,
   FlexModifiers,
@@ -30,6 +30,7 @@ export default ({config, onStoreConfig}) => {
   }
   const add = () => {
     const c = clone(config)
+    c.upstreams = c.upstreams || {}
     c.upstreams["Unnamed"] = {}
     onStoreConfig(c)
 
@@ -54,6 +55,11 @@ export default ({config, onStoreConfig}) => {
 
     <PageSection>
 
+      {value.length === 0 && <EmptyState>
+        No upstream servers defined yet.
+      </EmptyState>
+      }
+      {value.length !== 0 &&
       <DataList aria-label="data list" selectedDataListItemId={selected} onSelectDataListItem={setSelected}>
         {value.map((item, key) =>
           <DataListItem id={"" + key} aria-labelledby={"" + key} key={key}>
@@ -82,6 +88,7 @@ export default ({config, onStoreConfig}) => {
           </DataListItem>
         )}
       </DataList>
+      }
     </PageSection>
   </React.Fragment>
 

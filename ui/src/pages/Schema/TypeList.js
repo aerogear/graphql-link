@@ -5,23 +5,25 @@ import {
   DataListItem,
   DataListItemCells,
   DataListItemRow,
-  Divider,
+  Divider, EmptyState, EmptyStateIcon,
   PageSection,
   PageSectionVariants,
   Split,
   SplitItem,
-  TextContent
+  TextContent, Title
 } from '@patternfly/react-core';
 import React from 'react';
 import {Link} from "react-router-dom";
 import {clone} from "../../utils";
+import {SearchIcon} from "@patternfly/react-icons";
 
 const TypeList = ({config, onStoreConfig}) => {
 
-  const value = config.types
+  const value = config.types || []
 
   const onAdd = () => {
     const c = clone(config)
+    c.types = c.types || []
     c.types.push({
       name: "Unnamed",
       actions: []
@@ -42,10 +44,13 @@ const TypeList = ({config, onStoreConfig}) => {
           <SplitItem><Button variant="primary" onClick={onAdd}>Add</Button></SplitItem>
         </Split>
       </PageSection>
-      <Divider component="div"/>
 
       <PageSection noPadding={false}>
-
+        {value.length === 0 && <EmptyState>
+          No types defined yet.
+        </EmptyState>
+        }
+        {value.length !== 0 &&
         <DataList aria-label="data list">
           {value.map((item, key) =>
             <DataListItem id={"" + key} aria-labelledby={"" + key} key={key}>
@@ -63,10 +68,10 @@ const TypeList = ({config, onStoreConfig}) => {
             </DataListItem>
           )}
         </DataList>
+        }
 
       </PageSection>
 
-      {/*<UpstreamsList/>*/}
     </React.Fragment>
   )
 };

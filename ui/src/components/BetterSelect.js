@@ -21,6 +21,7 @@ const BetterSelect = ({value, setValue, expanded, setExpanded, ...rest}) => {
   return (
     <Select
       selections={_value}
+      placeholderText={"Please select ..."}
       onSelect={onSelect}
       isExpanded={_expanded}
       onToggle={onToggle}

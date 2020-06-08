@@ -48,9 +48,9 @@ listen: localhost:8080
 #    url: https://graphql-pokemon.now.sh
 #    prefix: Pokemon
 #    
-#types:
-#  - name: Query
-#    actions:
+types:
+  - name: Query
+    actions:
 #      # mounts the root anilist query to the anime field
 #      - type: mount
 #        field: anime
@@ -95,12 +95,14 @@ listen: localhost:8080
 ##      }
 ##     }
 #
-#  - name: Mutation
-#    actions:
+  - name: Mutation
+    actions:
 #      # mounts all the fields of the root anilist mutation
 #      - type: mount
 #        upstream: anilist
 #        query: mutation {}
+  - name: Subscription
+    actions:
 `), 0644)
 
 	if err != nil {

@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -123,6 +124,7 @@ type Subscription {}
 	upstreams := createUpstreams(config)
 
 	for eid, upstream := range upstreams {
+
 		original, err := loadEndpointSchema(config, upstream)
 		if err != nil {
 			log.Printf("%v", err)
@@ -192,6 +194,15 @@ func createUpstreams(config Config) map[string]*upstreamServer {
 	for upstreamId, upstream := range config.Upstreams {
 		switch upstream := upstream.Upstream.(type) {
 		case *GraphQLUpstream:
+			if upstream.URL == "" {
+				config.Log.Printf("upstream '%s' disabled: url is not configured", upstreamId)
+				continue
+			}
+			_, err := url.Parse(upstream.URL)
+			if err != nil {
+				config.Log.Printf("upstream '%s' disabled: %v", upstreamId, err)
+				continue
+			}
 			u := CreateUpstreamServer(upstreamId, upstream)
 			upstreams[upstreamId] = u
 		default:

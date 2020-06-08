@@ -30,7 +30,7 @@ const Mount = ({upstreams, action, setAction}) => {
       </BetterSelect>
     </FormGroup>
 
-    <FormGroup label="Query" isRequired fieldId="query" helperText="A partial upstream GraphQL query that requests will be routed to">
+    <FormGroup label="Path Query" isRequired fieldId="query" helperText="A path query defines which upstream graph node gets mounted in the gateway">
       <TextArea
         id="query" name="query"
         value={action.query} onChange={onChange.query}
