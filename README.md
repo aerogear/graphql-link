@@ -16,6 +16,7 @@ GraphQL upstream servers.
 * Production mode settings to avoid the gateway's schema from dynamically changing due to changes in the upstream schemas.  
 * Uses the dataloader pattern to batch multiple query requests to the upstream servers.
 * Link the graphs of different upstream servers by defining additional link fields.
+* Web based configuration UI
 
 ### Installing
 
@@ -194,7 +195,7 @@ The `remove` action can be used to remove a field from a type.
 
 ## Common Use Cases
 
-### Importing all the fields of an upstream graphql upstream server.
+### Importing all the fields of an upstream graphql server
 
 If you want to import all the fields of an upstream server type, simply don't specify the name for the field to mount the query on to. The following example will import all the query fields onto the `Query` type and all the mutation fields on the `Mutation` type. 
 
@@ -212,7 +213,7 @@ types:
       query: mutation {}
 ```
 
-### Importing a nested field of upstream graphql upstream.
+### Importing a nested field of upstream graphql server
 
 Use a full graphql query to access nested child graph elements of the upstream
 graphql server.  Feel free to use argument variables or literals in the query. 
