@@ -17,6 +17,7 @@ GraphQL upstream servers.
 * Uses the dataloader pattern to batch multiple query requests to the upstream servers.
 * Link the graphs of different upstream servers by defining additional link fields.
 * Web based configuration UI
+* OpenAPI based upstream servers (get automatically converted to GraphQL Schema)
 
 ### Installing
 

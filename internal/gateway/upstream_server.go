@@ -19,7 +19,7 @@ type upstreamServer struct {
 	gatewayToUpstreamTypeNames map[string]string
 	Schema                     *schema.Schema
 	OriginalSchema             *schema.Schema
-	info                       GraphQLUpstream
+	info                       UpstreamInfo
 }
 
 func (u *upstreamServer) ToUpstreamInputValueList(from schema.InputValueList) schema.InputValueList {

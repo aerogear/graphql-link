@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"github.com/chirino/graphql-4-apis/pkg/apis"
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
 )
@@ -24,6 +25,8 @@ func (h *UpstreamWrapper) UnmarshalYAML(unmarshal func(interface{}) error) error
 		upstream = &GraphQLUpstream{}
 	case "graphql":
 		upstream = &GraphQLUpstream{}
+	case "openapi":
+		upstream = &OpenApiUpstream{}
 	default:
 		return errors.New("invalid action type")
 	}
@@ -39,6 +42,8 @@ func (h UpstreamWrapper) MarshalYAML() (interface{}, error) {
 		switch h.Upstream.(type) {
 		case *GraphQLUpstream:
 			typeValue = "graphql"
+		case *OpenApiUpstream:
+			typeValue = "openapi"
 		}
 	}
 
@@ -60,9 +65,23 @@ func (h UpstreamWrapper) MarshalYAML() (interface{}, error) {
 
 }
 
+type UpstreamInfo struct {
+	URL    string `yaml:"url,omitempty"`
+	Prefix string `yaml:"prefix,omitempty"`
+	Suffix string `yaml:"suffix,omitempty"`
+	Schema string `yaml:"types,omitempty"`
+}
+
 type GraphQLUpstream struct {
 	URL    string `yaml:"url,omitempty"`
 	Prefix string `yaml:"prefix,omitempty"`
 	Suffix string `yaml:"suffix,omitempty"`
 	Schema string `yaml:"types,omitempty"`
+}
+
+type OpenApiUpstream struct {
+	Openapi apis.EndpointOptions `yaml:"spec,omitempty"`
+	APIBase apis.EndpointOptions `yaml:"api,omitempty"`
+	Prefix  string               `yaml:"prefix,omitempty"`
+	Suffix  string               `yaml:"suffix,omitempty"`
 }

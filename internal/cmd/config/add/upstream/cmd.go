@@ -67,7 +67,10 @@ func run(cmd *cobra.Command, args []string) {
 	}
 
 	var upstreamSchema *schema.Schema
-	upstreamServer := gateway.CreateUpstreamServer(upstreamName, upstream)
+	upstreamServer, err := gateway.CreateGraphQLUpstreamServer(upstreamName, upstream)
+	if err != nil {
+		log.Fatalf(root.Verbosity, "invalid upstream: "+root.Verbosity, err)
+	}
 
 	if schemaFile == "" {
 		// Verify we can get the schema from the server...

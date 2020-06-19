@@ -1,5 +1,5 @@
 # Configure the host and port the service will listen on
-listen: localhost:8080
+listen: 0.0.0.0:8080
 
 #
 # Configure the GraphQL upstream servers you will be accessing
@@ -10,7 +10,14 @@ upstreams:
   pokemon:
     url: https://graphql-pokemon.now.sh
     prefix: Pokemon
-    
+  weather:
+    type: openapi
+    prefix: Weather
+    spec:
+      url: https://weather.com/swagger-docs/sun/v1/sunV1DailyForecast.json
+    api:
+      api-key: please configure me
+
 types:
   - name: Query
     actions:
@@ -24,6 +31,11 @@ types:
       - type: mount
         field: pokemon
         upstream: pokemon
+        query: query {}
+
+      - type: mount
+        field: weather
+        upstream: weather
         query: query {}
 
   - name: AniCharacter

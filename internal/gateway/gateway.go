@@ -12,6 +12,7 @@ import (
 	"regexp"
 
 	"github.com/chirino/graphql"
+	"github.com/chirino/graphql-4-apis/pkg/apis"
 	"github.com/chirino/graphql/exec"
 	"github.com/chirino/graphql/httpgql"
 	"github.com/chirino/graphql/qerrors"
@@ -194,17 +195,21 @@ func createUpstreams(config Config) map[string]*upstreamServer {
 	for upstreamId, upstream := range config.Upstreams {
 		switch upstream := upstream.Upstream.(type) {
 		case *GraphQLUpstream:
-			if upstream.URL == "" {
-				config.Log.Printf("upstream '%s' disabled: url is not configured", upstreamId)
-				continue
-			}
-			_, err := url.Parse(upstream.URL)
+			u, err := CreateGraphQLUpstreamServer(upstreamId, upstream)
 			if err != nil {
 				config.Log.Printf("upstream '%s' disabled: %v", upstreamId, err)
 				continue
 			}
-			u := CreateUpstreamServer(upstreamId, upstream)
 			upstreams[upstreamId] = u
+		case *OpenApiUpstream:
+
+			u, err := CreateOpenAPIUpstreamServer(upstreamId, upstream)
+			if err != nil {
+				config.Log.Printf("upstream '%s' disabled: %v", upstreamId, err)
+				continue
+			}
+			upstreams[upstreamId] = u
+
 		default:
 			panic("invalid upstream type")
 		}
@@ -212,21 +217,58 @@ func createUpstreams(config Config) map[string]*upstreamServer {
 	return upstreams
 }
 
-func CreateUpstreamServer(id string, upstream *GraphQLUpstream) *upstreamServer {
+func CreateOpenAPIUpstreamServer(id string, upstream *OpenApiUpstream) (*upstreamServer, error) {
+	engine, err := apis.CreateGatewayEngine(apis.Config{
+		Openapi: upstream.Openapi,
+		APIBase: upstream.APIBase,
+		Logs:    ioutil.Discard, // TODO..
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &upstreamServer{
+		id:                         id,
+		Client:                     engine.ServeGraphQL,
+		subscriptionClient:         engine.ServeGraphQLStream,
+		originalNames:              map[string]schema.NamedType{},
+		gatewayToUpstreamTypeNames: map[string]string{},
+		info: UpstreamInfo{
+			URL:    upstream.Openapi.URL, // todo.. replace with the resolved API address
+			Prefix: upstream.Prefix,
+			Suffix: upstream.Suffix,
+		},
+		Schema: nil,
+	}, nil
+}
+
+func CreateGraphQLUpstreamServer(id string, upstream *GraphQLUpstream) (*upstreamServer, error) {
+	if upstream.URL == "" {
+		return nil, errors.New("url is not configured")
+	}
+
+	_, err := url.Parse(upstream.URL)
+	if err != nil {
+		return nil, err
+	}
+
 	c := httpgql.NewClient(upstream.URL)
 	c.HTTPClient = &http.Client{
 		Transport: proxyTransport(0),
 	}
-	u := &upstreamServer{
+	return &upstreamServer{
 		id:                         id,
 		Client:                     c.ServeGraphQL,
 		subscriptionClient:         c.ServeGraphQLStream,
 		originalNames:              map[string]schema.NamedType{},
 		gatewayToUpstreamTypeNames: map[string]string{},
-		info:                       *upstream,
-		Schema:                     nil,
-	}
-	return u
+		info: UpstreamInfo{
+			URL:    upstream.URL,
+			Prefix: upstream.Prefix,
+			Suffix: upstream.Suffix,
+			Schema: upstream.Schema,
+		},
+		Schema: nil,
+	}, nil
 }
 
 func HaveUpstreamSchemaChanged(config Config) (bool, error) {

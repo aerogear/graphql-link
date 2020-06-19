@@ -29,60 +29,66 @@ func (p proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		if value != nil {
 			originalRequest := value.(*http.Request)
 
-			for k, headers := range originalRequest.Header {
-				switch k {
-
-				// Hop-by-hop headers... Don't forward these.
-				// http://www.w3.org/Protocols/rfc2616/rfc2616-sec13.html
-				case "Connection":
-				case "Keep-Alive":
-				case "Proxy-Authenticate":
-				case "Proxy-Authorization":
-				case "Te":
-				case "Trailers":
-				case "Transfer-Encoding":
-				case "Upgrade":
-
-				// Skip these headers which could affect our connection
-				// to the upstream:
-				case "Accept-Encoding":
-				case "Sec-Websocket-Version":
-				case "Sec-Websocket-Protocol":
-				case "Sec-Websocket-Extensions":
-				case "Sec-Websocket-Key":
-				default:
-					// Copy over any other headers..
-					for _, header := range headers {
-						req.Header.Add(k, header)
-					}
-				}
-			}
-
-			if clientIP, _, err := net.SplitHostPort(originalRequest.RemoteAddr); err == nil {
-				if prior, ok := originalRequest.Header["X-Forwarded-For"]; ok {
-					clientIP = strings.Join(prior, ", ") + ", " + clientIP
-				}
-				req.Header.Set("X-Forwarded-For", clientIP)
-			}
-
-			if _, ok := originalRequest.Header["X-Forwarded-Host"]; !ok {
-				if host := originalRequest.Header.Get("Host"); host != "" {
-					req.Header.Set("X-Forwarded-Host", host)
-				}
-			}
-
-			if _, ok := originalRequest.Header["X-Forwarded-Proto"]; !ok {
-				if originalRequest.TLS != nil {
-					req.Header.Set("X-Forwarded-Proto", "https")
-				} else {
-					req.Header.Set("X-Forwarded-Proto", "http")
-				}
-			}
+			toHeaders := req.Header
+			proxyHeaders(toHeaders, originalRequest)
 
 		}
 
 	}
 	return http.DefaultTransport.RoundTrip(req)
+}
+
+func proxyHeaders(to http.Header, from *http.Request) {
+	fromHeaders := from.Header
+	for k, h := range fromHeaders {
+		switch k {
+
+		// Hop-by-hop headers... Don't forward these.
+		// http://www.w3.org/Protocols/rfc2616/rfc2616-sec13.html
+		case "Connection":
+		case "Keep-Alive":
+		case "Proxy-Authenticate":
+		case "Proxy-Authorization":
+		case "Te":
+		case "Trailers":
+		case "Transfer-Encoding":
+		case "Upgrade":
+
+		// Skip these headers which could affect our connection
+		// to the upstream:
+		case "Accept-Encoding":
+		case "Sec-Websocket-Version":
+		case "Sec-Websocket-Protocol":
+		case "Sec-Websocket-Extensions":
+		case "Sec-Websocket-Key":
+		default:
+			// Copy over any other headers..
+			for _, header := range h {
+				to.Add(k, header)
+			}
+		}
+	}
+
+	if clientIP, _, err := net.SplitHostPort(from.RemoteAddr); err == nil {
+		if prior, ok := from.Header["X-Forwarded-For"]; ok {
+			clientIP = strings.Join(prior, ", ") + ", " + clientIP
+		}
+		to.Set("X-Forwarded-For", clientIP)
+	}
+
+	if _, ok := from.Header["X-Forwarded-Host"]; !ok {
+		if host := from.Header.Get("Host"); host != "" {
+			to.Set("X-Forwarded-Host", host)
+		}
+	}
+
+	if _, ok := from.Header["X-Forwarded-Proto"]; !ok {
+		if from.TLS != nil {
+			to.Set("X-Forwarded-Proto", "https")
+		} else {
+			to.Set("X-Forwarded-Proto", "http")
+		}
+	}
 }
 
 func StartServer(host string, port uint16, engine *graphql.Engine, log *log.Logger) (*httptest.Server, error) {
