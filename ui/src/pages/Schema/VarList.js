@@ -4,10 +4,8 @@ import {
   DataListCell,
   DataListItem,
   DataListItemCells,
-  DataListItemRow, FormGroup,
-  Split,
-  SplitItem,
-  TextContent,
+  DataListItemRow,
+  FormGroup,
   TextInput,
 } from '@patternfly/react-core';
 import React from 'react';
