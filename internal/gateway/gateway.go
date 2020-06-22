@@ -203,7 +203,7 @@ func createUpstreams(config Config) map[string]*upstreamServer {
 			upstreams[upstreamId] = u
 		case *OpenApiUpstream:
 
-			u, err := CreateOpenAPIUpstreamServer(upstreamId, upstream)
+			u, err := CreateOpenAPIUpstreamServer(upstreamId, upstream, config)
 			if err != nil {
 				config.Log.Printf("upstream '%s' disabled: %v", upstreamId, err)
 				continue
@@ -217,11 +217,11 @@ func createUpstreams(config Config) map[string]*upstreamServer {
 	return upstreams
 }
 
-func CreateOpenAPIUpstreamServer(id string, upstream *OpenApiUpstream) (*upstreamServer, error) {
+func CreateOpenAPIUpstreamServer(id string, upstream *OpenApiUpstream, config Config) (*upstreamServer, error) {
 	engine, err := apis.CreateGatewayEngine(apis.Config{
 		Openapi: upstream.Openapi,
 		APIBase: upstream.APIBase,
-		Logs:    ioutil.Discard, // TODO..
+		Log:     NoLog,
 	})
 	if err != nil {
 		return nil, err

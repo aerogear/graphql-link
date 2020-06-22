@@ -2,7 +2,7 @@ module github.com/chirino/graphql-gw
 
 require (
 	github.com/chirino/graphql v0.0.0-20200620205252-3aa1055298c1
-	github.com/chirino/graphql-4-apis v0.0.0-20200620205633-46ddb89ea070
+	github.com/chirino/graphql-4-apis v0.0.0-20200622132210-66059999b694
 	github.com/chirino/hawtgo v0.0.1
 	github.com/fsnotify/fsnotify v1.4.9
 	github.com/getkin/kin-openapi v0.14.0 // indirect
@@ -20,5 +20,5 @@ require (
 
 go 1.13
 
-// replace github.com/chirino/graphql => ../graphql
-// replace github.com/chirino/graphql-4-apis => ../graphql-4-apis
+//replace github.com/chirino/graphql => ../graphql
+//replace github.com/chirino/graphql-4-apis => ../graphql-4-apis
