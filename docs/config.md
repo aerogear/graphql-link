@@ -1,39 +1,79 @@
 ## Configuration Guide
 
-### `listen:`
+## Configuration Root Fields
 
-Set the `listen:` to the host and port you want the graphql server to listen on. 
+| Field        | Required | Type                       | Description                                                                |
+| ------------ | -------- | -------------------------- | -------------------------------------------------------------------------- |
+| `listen:`    | no       | string                     | sets the host and port you want the graphql server to listen on.           |
+| `upstreams:` | no       | [Upstream Map](#upstreams) | map of all the upstream severs that you will be accessing with the gateway |
+| `schema:`    | no       | [Schema](#schema)          |                                                                            |
+| `types:`     | no       | [Types](#types)            |                                                                            |
 
 Example:
 
 ```yaml
 listen: localhost:8080
-```
-
-### `upstreams:`
-
-The upstreams section holds a map of all the upstream severs that you will be
-accessing with the gateway.  The example below defines two upstream servers: `anilist` and `users`. Keep in mind that the URL configured must be a graphql server that is accessible from the gateway's network. 
-
-```yaml
 upstreams:
   anilist:
     url: https://graphql.anilist.co/
-  users:
-    url: https://users.acme.io/graphql
+types:
+  - name: Query
+    actions:
 ```
 
-If there are duplicate types across the upstream severs you can configure either type name prefixes or suffixes on the upstream severs so that conflicts can be avoided when imported into the gateway.  Example:
+### Upstreams
 
-```yaml
-upstreams:
-  anilist:
-    url: https://graphql.anilist.co/
-    prefix: Ani
-    suffix: Type
-  users:
-    url: https://users.acme.io/graphql
-```
+The `upstreams:` section holds a map of all the upstream severs that you will be
+accessing with the gateway.  The default upstream type is `graphql`. 
+
+| type                            | Description                                                                       |
+| ------------------------------- | --------------------------------------------------------------------------------- |
+| [`graphql`](#action-type-mount) | the upstream server implements graphql                                            |
+| [`openapi`](#action-type-mount) | the upstream server implements a REST interface described by an openapi document. |
+
+### Upstream `type: graphql`
+
+The `graphql` upstream type supports the following configuration options:
+
+| Field      | Required | Type                  | Description                                                                                          |
+| ---------- | -------- | --------------------- | ---------------------------------------------------------------------------------------------------- |
+| `url:`     | yes      | url                   | the URL to the graphql endpoint                                                                      |
+| `prefix:`  | no       | string                | A prefix to add to all upstream graphql Types when they get imported into the gateway graphql schema |
+| `suffix:`  | no       | string                | A suffix to add to all upstream graphql Types when they get imported into the gateway graphql schema |
+| `headers:` | no       | [Headers]((#headers)) | A Headers configuration section                                                                      |
+
+### Upstream `type: openapi`
+
+The `openapi` upstream type supports the following configuration options:
+
+| Field      | Required | Type                    | Description                                                                                          |
+| ---------- | -------- | ----------------------- | ---------------------------------------------------------------------------------------------------- |
+| `spec:`    | yes      | [Endpoint]((#endpoint)) | Where the openapi specification document can be obtained.                                            |
+| `api:`     | no       | [Endpoint]((#endpoint)) | Sets where endpoint base URL is accessed                                                             |
+| `prefix:`  | no       | string                  | A prefix to add to all upstream graphql Types when they get imported into the gateway graphql schema |
+| `suffix:`  | no       | string                  | A suffix to add to all upstream graphql Types when they get imported into the gateway graphql schema |
+| `headers:` | no       | [Headers]((#headers))   | A Headers configuration section                                                                      |
+
+### Headers
+
+A headers section supports the following configuration options:
+
+| Field                 | type                | Description                                                  |
+| --------------------- | ------------------- | ------------------------------------------------------------ |
+| `disable-forwarding:` | boolean             | disables forwarding client set headers to the upstream proxy |
+| `set:`                | list of name values | Headers to set on the on the upstream reqeust                |
+| `remove:`             | list of strings     | headers to remove the upstream request                       |
+
+### Endpoint
+
+An Endpoint configuration section supports the following configuration options:
+
+| Field              | Required | Type   | Description                                                                               |
+| ------------------ | -------- | ------ | ----------------------------------------------------------------------------------------- |
+| `url:`             | yes      | url    | the URL to the endpoint                                                                   |
+| `bearer-token:`    | yes      | string | an Authentication Bearer token that will added to the request headers.                    |
+| `insecure-client:` | yes      | string | allows the client request to connect to TLS servers that do not have a valid certificate. |
+| `api-key:`         | yes      | string | the API key to use with against the API (as defined in the openapi spec)                  |
 
 ### `schema:`
 
@@ -77,6 +117,8 @@ types:
 | ------------------------------- | ------------------------------------------------------------------------- |
 | [`mount`](#action-type-mount)   | mounts an upstream field onto a gateway schema type using a graphql query |
 | [`rename`](#action-type-rename) | renames either a type or field in the gateway schema.                     |
+| [`remove`](#action-type-remove) | used to remove a field from a type.                                       |
+| [`link`](#action-type-link)     | Used to create graph links between types from different servers.          |
 
 ### Action `type: mount`
 

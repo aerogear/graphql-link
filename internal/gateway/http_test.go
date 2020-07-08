@@ -14,6 +14,7 @@ import (
 	"github.com/chirino/graphql/httpgql"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v2"
 )
 
 type testHandler struct {
@@ -47,20 +48,9 @@ func (h *testHandler) GetRequestCounter() (r int64) {
 
 func TestProxyHeaders(t *testing.T) {
 
-	charactersEngine := characters.New()
-
-	h := &testHandler{Handler: &httpgql.Handler{ServeGraphQLStream: charactersEngine.ServeGraphQLStream}}
-	charactersServer := httptest.NewServer(h)
+	h, charactersServer, gatewayServer, client := createTestServersWithTestHandler(t, createCharactersPassthroughConfig())
 	defer charactersServer.Close()
-
-	config := createCharactersPassthroughConfig()
-	config.Upstreams["characters"].Upstream.(*gateway.GraphQLUpstream).URL = charactersServer.URL
-	gw, err := gateway.New(config)
-	require.NoError(t, err)
-	gatewayServer := httptest.NewServer(gateway.CreateHttpHandler(gw.ServeGraphQLStream))
 	defer gatewayServer.Close()
-
-	client := httpgql.NewClient(gatewayServer.URL)
 
 	actual := map[string]interface{}{}
 	graphql.Exec(client.ServeGraphQL, context.Background(), &actual, `
@@ -88,20 +78,10 @@ query  {
 
 func TestCustomClientHeadersArePassedThrough(t *testing.T) {
 
-	charactersEngine := characters.New()
-
-	h := &testHandler{Handler: &httpgql.Handler{ServeGraphQLStream: charactersEngine.ServeGraphQLStream}}
-	charactersServer := httptest.NewServer(h)
+	h, charactersServer, gatewayServer, client := createTestServersWithTestHandler(t, createCharactersPassthroughConfig())
 	defer charactersServer.Close()
-
-	config := createCharactersPassthroughConfig()
-	config.Upstreams["characters"].Upstream.(*gateway.GraphQLUpstream).URL = charactersServer.URL
-	gw, err := gateway.New(config)
-	require.NoError(t, err)
-	gatewayServer := httptest.NewServer(gateway.CreateHttpHandler(gw.ServeGraphQLStream))
 	defer gatewayServer.Close()
 
-	client := httpgql.NewClient(gatewayServer.URL)
 	client.RequestHeader.Set("Custom", "Hello World")
 
 	actual := map[string]interface{}{}
@@ -117,23 +97,26 @@ query  {
 	assert.Equal(t, `Hello World`, value)
 }
 
-func TestSingleHopHeadersAreNotPassedThrough(t *testing.T) {
+func TestDisabledCustomClientHeadersPassThrough(t *testing.T) {
 
-	charactersEngine := characters.New()
-
-	h := &testHandler{Handler: &httpgql.Handler{ServeGraphQLStream: charactersEngine.ServeGraphQLStream}}
-	charactersServer := httptest.NewServer(h)
+	config := mustCreateConfig(`
+upstreams:
+  characters:
+    suffix: _t1
+    headers:
+      disable-forwarding: true
+types:
+  - name: Query
+    actions:
+      - type: mount
+        upstream: characters
+        query: query {}
+`)
+	h, charactersServer, gatewayServer, client := createTestServersWithTestHandler(t, config)
 	defer charactersServer.Close()
-
-	config := createCharactersPassthroughConfig()
-	config.Upstreams["characters"].Upstream.(*gateway.GraphQLUpstream).URL = charactersServer.URL
-	gw, err := gateway.New(config)
-	require.NoError(t, err)
-	gatewayServer := httptest.NewServer(gateway.CreateHttpHandler(gw.ServeGraphQLStream))
 	defer gatewayServer.Close()
 
-	client := httpgql.NewClient(gatewayServer.URL)
-	client.RequestHeader.Set("Proxy-Authenticate", "Hello World")
+	client.RequestHeader.Set("Custom", "Hello World")
 
 	actual := map[string]interface{}{}
 	graphql.Exec(client.ServeGraphQL, context.Background(), &actual, `
@@ -148,43 +131,140 @@ query  {
 	assert.Equal(t, ``, value)
 }
 
-func createCharactersPassthroughConfig() gateway.Config {
-	return gateway.Config{
-		Upstreams: map[string]gateway.UpstreamWrapper{
-			"characters": {
-				Upstream: &gateway.GraphQLUpstream{
-					Suffix: "_t1",
-				},
-			},
-		},
-		Types: []gateway.TypeConfig{
-			{
-				Name: `Query`,
-				Actions: []gateway.ActionWrapper{
-					{
-						Action: &gateway.Mount{
-							Upstream: "characters",
-							Query:    `query {}`,
-						},
-					},
-				},
-			},
-		},
+func TestUpstreamSetHeader(t *testing.T) {
+
+	config := mustCreateConfig(`
+upstreams:
+  characters:
+    suffix: _t1
+    headers:
+      set:
+        - name: Custom
+          value: Upstream Set
+types:
+  - name: Query
+    actions:
+      - type: mount
+        upstream: characters
+        query: query {}
+`)
+	h, charactersServer, gatewayServer, client := createTestServersWithTestHandler(t, config)
+	defer charactersServer.Close()
+	defer gatewayServer.Close()
+
+	client.RequestHeader.Set("Custom", "Hello World")
+
+	actual := map[string]interface{}{}
+	graphql.Exec(client.ServeGraphQL, context.Background(), &actual, `
+query  {
+    characters {
+      id
+    }
+}`)
+
+	request := h.GetLastRequest()
+	value := request.Header.Get("Custom")
+	assert.Equal(t, `Upstream Set`, value)
+}
+
+func TestUpstreamRemoveHeader(t *testing.T) {
+
+	config := mustCreateConfig(`
+upstreams:
+  characters:
+    suffix: _t1
+    headers:
+      remove:
+        - Custom 
+types:
+  - name: Query
+    actions:
+      - type: mount
+        upstream: characters
+        query: query {}
+`)
+	h, charactersServer, gatewayServer, client := createTestServersWithTestHandler(t, config)
+	defer charactersServer.Close()
+	defer gatewayServer.Close()
+
+	client.RequestHeader.Set("Custom", "Hello World")
+
+	actual := map[string]interface{}{}
+	graphql.Exec(client.ServeGraphQL, context.Background(), &actual, `
+query  {
+    characters {
+      id
+    }
+}`)
+
+	request := h.GetLastRequest()
+	value := request.Header.Get("Custom")
+	assert.Equal(t, ``, value)
+}
+
+func createTestServersWithTestHandler(t *testing.T, config gateway.Config) (*testHandler, *httptest.Server, *httptest.Server, *httpgql.Client) {
+	charactersEngine := characters.New()
+	h := &testHandler{Handler: &httpgql.Handler{ServeGraphQLStream: charactersEngine.ServeGraphQLStream}}
+	charactersServer := httptest.NewServer(h)
+
+	config.Upstreams["characters"].Upstream.(*gateway.GraphQLUpstream).URL = charactersServer.URL
+	gw, err := gateway.New(config)
+	require.NoError(t, err)
+	gatewayServer := httptest.NewServer(gateway.CreateHttpHandler(gw.ServeGraphQLStream))
+
+	client := httpgql.NewClient(gatewayServer.URL)
+	return h, charactersServer, gatewayServer, client
+}
+
+func TestSingleHopHeadersAreNotPassedThrough(t *testing.T) {
+
+	h, charactersServer, gatewayServer, client := createTestServersWithTestHandler(t, createCharactersPassthroughConfig())
+	defer charactersServer.Close()
+	defer gatewayServer.Close()
+
+	client.RequestHeader.Set("Proxy-Authenticate", "Hello World")
+	actual := map[string]interface{}{}
+	graphql.Exec(client.ServeGraphQL, context.Background(), &actual, `
+query  {
+    characters {
+      id
+    }
+}`)
+
+	request := h.GetLastRequest()
+	value := request.Header.Get("Proxy-Authenticate")
+	assert.Equal(t, ``, value)
+}
+
+func mustCreateConfig(gatewayConfig string) gateway.Config {
+	var config gateway.Config
+	err := yaml.Unmarshal([]byte(gatewayConfig), &config)
+	if err != nil {
+		panic(err)
 	}
+	return config
+}
+
+func createCharactersPassthroughConfig() gateway.Config {
+	return mustCreateConfig(`
+upstreams:
+  characters:
+    suffix: _t1
+
+types:
+  - name: Query
+    actions:
+      - type: mount
+        upstream: characters
+        query: query {}
+`)
 }
 
 func TestDataLoader(t *testing.T) {
 
-	charactersEngine := characters.New()
-
-	h := &testHandler{Handler: &httpgql.Handler{ServeGraphQLStream: charactersEngine.ServeGraphQLStream}}
-	charactersServer := httptest.NewServer(h)
+	h, charactersServer, gatewayServer, gw := createTestServersWithTestHandler(t, createCharactersPassthroughConfig())
 	defer charactersServer.Close()
-
-	config := createCharactersPassthroughConfig()
-	config.Upstreams["characters"].Upstream.(*gateway.GraphQLUpstream).URL = charactersServer.URL
-	gw, err := gateway.New(config)
-	require.NoError(t, err)
+	defer gatewayServer.Close()
 
 	// The first request is an introspection query.
 	assert.Equal(t, int64(1), h.GetRequestCounter())

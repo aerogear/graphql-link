@@ -233,9 +233,10 @@ func CreateOpenAPIUpstreamServer(id string, upstream *OpenApiUpstream, config Co
 		originalNames:              map[string]schema.NamedType{},
 		gatewayToUpstreamTypeNames: map[string]string{},
 		info: UpstreamInfo{
-			URL:    upstream.Openapi.URL, // todo.. replace with the resolved API address
-			Prefix: upstream.Prefix,
-			Suffix: upstream.Suffix,
+			URL:     upstream.Openapi.URL, // todo.. replace with the resolved API address
+			Prefix:  upstream.Prefix,
+			Suffix:  upstream.Suffix,
+			Headers: upstream.Headers,
 		},
 		Schema: nil,
 	}, nil
@@ -252,8 +253,15 @@ func CreateGraphQLUpstreamServer(id string, upstream *GraphQLUpstream) (*upstrea
 	}
 
 	c := httpgql.NewClient(upstream.URL)
+	info := UpstreamInfo{
+		URL:     upstream.URL,
+		Prefix:  upstream.Prefix,
+		Suffix:  upstream.Suffix,
+		Schema:  upstream.Schema,
+		Headers: upstream.Headers,
+	}
 	c.HTTPClient = &http.Client{
-		Transport: proxyTransport(0),
+		Transport: &info,
 	}
 	return &upstreamServer{
 		id:                         id,
@@ -261,13 +269,8 @@ func CreateGraphQLUpstreamServer(id string, upstream *GraphQLUpstream) (*upstrea
 		subscriptionClient:         c.ServeGraphQLStream,
 		originalNames:              map[string]schema.NamedType{},
 		gatewayToUpstreamTypeNames: map[string]string{},
-		info: UpstreamInfo{
-			URL:    upstream.URL,
-			Prefix: upstream.Prefix,
-			Suffix: upstream.Suffix,
-			Schema: upstream.Schema,
-		},
-		Schema: nil,
+		info:                       info,
+		Schema:                     nil,
 	}, nil
 }
 

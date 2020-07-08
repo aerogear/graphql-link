@@ -18,9 +18,7 @@ func CreateHttpHandler(f graphql.ServeGraphQLStreamFunc) http.Handler {
 	return &httpgql.Handler{ServeGraphQLStream: f}
 }
 
-type proxyTransport byte
-
-func (p proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+func (p *UpstreamInfo) RoundTrip(req *http.Request) (*http.Response, error) {
 
 	ctx := req.Context()
 	if ctx != nil {
@@ -30,8 +28,18 @@ func (p proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 			originalRequest := value.(*http.Request)
 
 			toHeaders := req.Header
-			proxyHeaders(toHeaders, originalRequest)
 
+			if !p.Headers.DisableForwarding {
+				proxyHeaders(toHeaders, originalRequest)
+			}
+
+			for _, h := range p.Headers.Remove {
+				toHeaders.Del(h)
+			}
+
+			for _, hl := range p.Headers.Set {
+				toHeaders.Set(hl.Name, hl.Value)
+			}
 		}
 
 	}

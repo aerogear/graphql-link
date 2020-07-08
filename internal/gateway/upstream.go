@@ -65,23 +65,37 @@ func (h UpstreamWrapper) MarshalYAML() (interface{}, error) {
 
 }
 
+type HeaderLine struct {
+	Name  string `yaml:"name,omitempty"`
+	Value string `yaml:"value,omitempty"`
+}
+
+type HeaderHandling struct {
+	DisableForwarding bool         `yaml:"disable-forwarding,omitempty"`
+	Set               []HeaderLine `yaml:"set,omitempty"`
+	Remove            []string     `yaml:"remove,omitempty"`
+}
+
 type UpstreamInfo struct {
-	URL    string `yaml:"url,omitempty"`
-	Prefix string `yaml:"prefix,omitempty"`
-	Suffix string `yaml:"suffix,omitempty"`
-	Schema string `yaml:"types,omitempty"`
+	URL     string         `yaml:"url,omitempty"`
+	Prefix  string         `yaml:"prefix,omitempty"`
+	Suffix  string         `yaml:"suffix,omitempty"`
+	Schema  string         `yaml:"types,omitempty"`
+	Headers HeaderHandling `yaml:"headers,omitempty"`
 }
 
 type GraphQLUpstream struct {
-	URL    string `yaml:"url,omitempty"`
-	Prefix string `yaml:"prefix,omitempty"`
-	Suffix string `yaml:"suffix,omitempty"`
-	Schema string `yaml:"types,omitempty"`
+	URL     string         `yaml:"url,omitempty"`
+	Prefix  string         `yaml:"prefix,omitempty"`
+	Suffix  string         `yaml:"suffix,omitempty"`
+	Schema  string         `yaml:"types,omitempty"`
+	Headers HeaderHandling `yaml:"headers,omitempty"`
 }
 
 type OpenApiUpstream struct {
 	Openapi apis.EndpointOptions `yaml:"spec,omitempty"`
 	APIBase apis.EndpointOptions `yaml:"api,omitempty"`
+	Headers HeaderHandling       `yaml:"headers,omitempty"`
 	Prefix  string               `yaml:"prefix,omitempty"`
 	Suffix  string               `yaml:"suffix,omitempty"`
 }
