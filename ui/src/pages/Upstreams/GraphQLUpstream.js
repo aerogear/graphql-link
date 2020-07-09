@@ -2,14 +2,17 @@ import {FormGroup, TextInput} from '@patternfly/react-core';
 
 import React from 'react';
 import {fieldSetters} from "../../utils";
+import Headers from "./Headers";
 
 const GraphQLUpstream = ({upstream, setUpstream}) => {
 
-  const onChange = fieldSetters(Object.assign({
+  upstream = Object.assign({
     suffix: "",
     prefix: "",
-    url: ""
-  }, upstream), setUpstream)
+    url: "",
+    headers: {},
+  }, upstream)
+  const onChange = fieldSetters(upstream, setUpstream)
 
   return (
     <React.Fragment>
@@ -34,6 +37,8 @@ const GraphQLUpstream = ({upstream, setUpstream}) => {
           type="text"
         />
       </FormGroup>
+
+      <Headers headers={upstream.headers} setHeaders={onChange.headers}/>.
     </React.Fragment>
   )
 };
