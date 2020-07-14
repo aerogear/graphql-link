@@ -15,9 +15,7 @@ type DataLoaders struct {
 	loaders map[string]*UpstreamDataLoader
 }
 
-type dataLoadersKey byte
-
-const DataLoadersKey = dataLoadersKey(0)
+const DataLoadersKey = "DataLoadersKey"
 
 type UpstreamDataLoader struct {
 	ctx       context.Context

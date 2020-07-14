@@ -32,6 +32,12 @@ type SchemaConfig struct {
 	Subscription string `yaml:"subscription,omitempty"`
 }
 
+type PolicyAgentConfig struct {
+	Address string `yaml:"address,omitempty"`
+	// InsecureClient allows connections to servers that do not have a valid TLS certificate.
+	InsecureClient bool `yaml:"insecure-client,omitempty",json:"insecure-client,omitempty"`
+}
+
 type Config struct {
 	ConfigDirectory        string                     `yaml:"-"`
 	Log                    *log.Logger                `yaml:"-"`
@@ -40,11 +46,25 @@ type Config struct {
 	Upstreams              map[string]UpstreamWrapper `yaml:"upstreams"`
 	Schema                 *SchemaConfig              `yaml:"schema,omitempty"`
 	Types                  []TypeConfig               `yaml:"types"`
+	PolicyAgent            PolicyAgentConfig          `yaml:"policy-agent"`
 }
 
 var validGraphQLIdentifierRegex = regexp.MustCompile(`^[A-Za-z_][A-Za-z_0-9]*$`)
 
-func New(config Config) (*graphql.Engine, error) {
+type Gateway struct {
+	*graphql.Engine
+	onClose []func()
+}
+
+func (gw *Gateway) Close() {
+	funcs := gw.onClose
+	gw.onClose = nil
+	for _, f := range funcs {
+		f()
+	}
+}
+
+func New(config Config) (*Gateway, error) {
 	if config.Log == nil {
 		config.Log = NoLog
 	}
@@ -56,7 +76,7 @@ func New(config Config) (*graphql.Engine, error) {
 	}
 
 	fieldResolver := resolvers.TypeAndFieldResolver{}
-	gateway := graphql.New()
+	gateway := &Gateway{Engine: graphql.New()}
 	err := gateway.Schema.Parse(`
 schema {
     query: Query
@@ -138,10 +158,11 @@ type Subscription {}
 	}
 
 	actionRunner := actionRunner{
-		Gateway:   gateway,
+		Gateway:   gateway.Engine,
 		Endpoints: upstreams,
 		Resolver:  fieldResolver,
 	}
+
 	for _, typeConfig := range config.Types {
 		object := gateway.Schema.Types[typeConfig.Name]
 		if object == nil {
@@ -186,6 +207,12 @@ type Subscription {}
 			return nil, errors.Errorf("can only configure fields on OBJECT types: %s is a %s", typeConfig.Name, object.Kind())
 		}
 	}
+
+	err = initPolicyAgent(config, gateway)
+	if err != nil {
+		return nil, err
+	}
+
 	return gateway, nil
 }
 

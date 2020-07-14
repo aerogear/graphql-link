@@ -1,0 +1,12 @@
+#
+# In case we want to use github.com/grpc-ecosystem/grpc-gateway to
+# also support a REST interface to the PolicyAgent interface.
+#
+type: google.api.Service
+config_version: 3
+
+http:
+  rules:
+    - selector: proto.PolicyAgent.Check
+      post: /v1/policy-agent/check
+      body: "*"

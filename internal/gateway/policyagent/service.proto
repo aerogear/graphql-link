@@ -1,0 +1,58 @@
+syntax = "proto3";
+package proto;
+
+message Source {
+  string address = 1;
+}
+
+message Header {
+  string name = 1;
+  string value = 2;
+}
+
+message Http {
+  string host = 1;
+  string method = 2;
+  string path = 3;
+  string protocol = 4;
+  repeated Header headers = 5;
+}
+
+message GraphQLField {
+  // path to the graphql field from starting with the operation type.
+  string path = 1;
+  // the type name of parent of the field
+  string parentType = 2;
+  // the type name of the field
+  string fieldType = 3;
+  // json encoded object holding the arguments passed to the field
+  string args = 4;
+}
+
+message GraphQL {
+  repeated GraphQLField fields = 1;
+}
+
+// Holds information a GraphQL request
+message CheckRequest {
+  Source source = 1;
+  Http http = 2;
+  GraphQL graphql = 3;
+}
+
+message GraphQLFieldResponse {
+  // path to the graphql field from starting with the operation type.
+  string path = 1;
+  // an execution error associated with the given field.
+  string error = 2;
+}
+
+message CheckResponse {
+  repeated GraphQLFieldResponse fields = 1;
+  // validation errors to report back to the client.  If any are set, the entire graphql request fails.
+  repeated string validationError = 2;
+}
+
+service PolicyAgent {
+  rpc Check(CheckRequest) returns (CheckResponse) {}
+}

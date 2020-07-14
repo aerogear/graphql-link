@@ -14,6 +14,7 @@ import (
 
 type Config struct {
 	Server         *httptest.Server `yaml:"-"`
+	Gateway        *gateway.Gateway `yaml:"-"`
 	Listen         string           `yaml:"listen"`
 	gateway.Config `yaml:"-,inline"`
 }

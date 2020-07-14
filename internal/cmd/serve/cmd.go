@@ -64,6 +64,7 @@ func run(_ *cobra.Command, _ []string) {
 		// restart the server on a port change...
 		if lastConfig.Listen != nextConfig.Listen {
 			lastConfig.Server.Close()
+			lastConfig.Gateway.Close()
 
 			err = startServer(&nextConfig)
 			if err != nil {
@@ -106,11 +107,13 @@ func run(_ *cobra.Command, _ []string) {
 		case syscall.SIGINT:
 			log.Println("shutting down due to SIGINT signal")
 			lastConfig.Server.Close()
+			lastConfig.Gateway.Close()
 			os.Exit(0)
 
 		case syscall.SIGTERM:
 			log.Println("shutting down due to SIGTERM signal")
 			lastConfig.Server.Close()
+			lastConfig.Gateway.Close()
 			os.Exit(0)
 
 		case syscall.SIGHUP:
@@ -162,12 +165,12 @@ func startServer(config *config.Config) error {
 	return mountGatewayOnHttpServer(config)
 }
 
-func mountGatewayOnHttpServer(c *config.Config) error {
-	engine, err := gateway.New(c.Config)
+func mountGatewayOnHttpServer(c *config.Config) (err error) {
+	c.Gateway, err = gateway.New(c.Config)
 	if err != nil {
 		return err
 	}
-	gatewayHandler := gateway.CreateHttpHandler(engine.ServeGraphQLStream).(*httpgql.Handler)
+	gatewayHandler := gateway.CreateHttpHandler(c.Gateway.ServeGraphQLStream).(*httpgql.Handler)
 	// Enable pretty printed json results when in dev mode.
 	if !Production {
 		gatewayHandler.Indent = "  "
