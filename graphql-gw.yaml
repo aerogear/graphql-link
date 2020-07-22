@@ -1,6 +1,10 @@
 # Configure the host and port the service will listen on
 listen: 0.0.0.0:8080
 
+#policy-agent:
+#  insecure-client: true
+#  address: 127.0.0.1:10000
+
 #
 # Configure the GraphQL upstream servers you will be accessing
 upstreams:
@@ -17,7 +21,6 @@ upstreams:
       url: https://weather.com/swagger-docs/sun/v1/sunV1DailyForecast.json
     api:
       api-key: please configure me
-
 types:
   - name: Query
     actions:
@@ -37,6 +40,7 @@ types:
         field: weather
         upstream: weather
         query: query {}
+
 
   - name: AniCharacter
     actions:

@@ -25,12 +25,14 @@ var (
 		Short:             "Modifies the gateway configuration",
 		PersistentPreRunE: PreRunLoad,
 	}
-	File  string
-	Value *Config
+	File    string
+	WorkDir string
+	Value   *Config
 )
 
 func init() {
 	Command.PersistentFlags().StringVar(&File, "config", "graphql-gw.yaml", "path to the config file to modify")
+	Command.PersistentFlags().StringVar(&WorkDir, "workdir", "", "working to write files to in dev mode. (default to the directory the config file is in)")
 	root.Command.AddCommand(Command)
 }
 
@@ -51,7 +53,12 @@ func Load(config *Config) error {
 		return errors.Wrapf(err, "parsing yaml of: %s.", File)
 	}
 
-	config.ConfigDirectory = filepath.Dir(File)
+	if WorkDir == "" {
+		config.WorkDirectory = filepath.Dir(File)
+	} else {
+		config.WorkDirectory = WorkDir
+	}
+
 	config.Log = gateway.SimpleLog
 
 	if config.Upstreams == nil {

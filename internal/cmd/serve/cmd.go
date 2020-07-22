@@ -2,6 +2,7 @@ package serve
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"os/signal"
@@ -30,12 +31,13 @@ var (
 		Run:               run,
 		PersistentPreRunE: config.PreRunLoad,
 	}
-	Production = false
+	Production func() bool
 )
 
 func init() {
 	Command.Flags().StringVar(&config.File, "config", "graphql-gw.yaml", "path to the config file to load")
-	Command.Flags().BoolVar(&Production, "production", false, "when true, the server will not download and store schemas from remote graphql endpoints.")
+	Command.Flags().StringVar(&config.WorkDir, "workdir", "", "working to write files to in dev mode. (default to the directory the config file is in)")
+	Production = root.BoolBind(Command.Flags(), "production", false, "when true, the server will not download and store schemas from remote graphql endpoints.")
 	root.Command.AddCommand(Command)
 }
 
@@ -43,6 +45,37 @@ func run(_ *cobra.Command, _ []string) {
 	lastConfig := *config.Value
 	lastConfig.Log = gateway.TimestampedLog
 	log := lastConfig.Log
+
+	if Production() {
+		if config.WorkDir != filepath.Dir(config.File) {
+			log.Fatalf("work directory cannot be configured in production mode")
+		}
+	} else {
+
+		if config.WorkDir != filepath.Dir(config.File) {
+			os.MkdirAll(config.WorkDir, 0755)
+
+			source := config.File
+			target := filepath.Join(config.WorkDir, "graphql-gw.yaml")
+			if _, err := os.Stat(target); err != nil && os.IsNotExist(err) {
+				err := copy(source, target)
+				if err != nil {
+					log.Fatal(err)
+				}
+			}
+
+			// so we update and watch the config file in the work dir.
+			config.File = target
+
+			// but watch the original for changes...
+			watchFile(source, func(in fsnotify.Event) {
+				err := copy(source, target)
+				if err != nil {
+					log.Printf("Could not copy the config file to the work directory: %s", err)
+				}
+			})
+		}
+	}
 
 	err := startServer(&lastConfig)
 	if err != nil {
@@ -82,7 +115,7 @@ func run(_ *cobra.Command, _ []string) {
 		lastConfig = nextConfig
 	}
 
-	if !Production {
+	if !Production() {
 		watchFile(config.File, func(in fsnotify.Event) {
 			log.Println("restarting due to configuration change:", in.Name)
 			restart()
@@ -165,20 +198,41 @@ func startServer(config *config.Config) error {
 	return mountGatewayOnHttpServer(config)
 }
 
+func copy(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+
+	out, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	_, err = io.Copy(out, in)
+	if err != nil {
+		return err
+	}
+	return out.Close()
+}
+
 func mountGatewayOnHttpServer(c *config.Config) (err error) {
+
 	c.Gateway, err = gateway.New(c.Config)
 	if err != nil {
 		return err
 	}
 	gatewayHandler := gateway.CreateHttpHandler(c.Gateway.ServeGraphQLStream).(*httpgql.Handler)
 	// Enable pretty printed json results when in dev mode.
-	if !Production {
+	if !Production() {
 		gatewayHandler.Indent = "  "
 	}
 	graphqlURL := fmt.Sprintf("%s/graphql", c.Server.URL)
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
-	if !Production {
+	if !Production() {
 		r.Mount("/", http.FileServer(assets.FileSystem))
 		r.Mount("/admin", admin.CreateHttpHandler())
 	}
@@ -186,7 +240,7 @@ func mountGatewayOnHttpServer(c *config.Config) (err error) {
 	r.Handle("/graphiql", graphiql.New(graphqlURL, true))
 	c.Server.Config.Handler = r
 	c.Config.Log.Printf("GraphQL endpoint is running at %s", graphqlURL)
-	if Production {
+	if Production() {
 		c.Config.Log.Printf("Gateway GraphQL IDE is running at %s/graphiql", c.Server.URL)
 	} else {
 		c.Config.Log.Printf("Gateway Admin UI and GraphQL IDE is running at %s", c.Server.URL)
@@ -209,7 +263,7 @@ func postProcess(config *config.Config) {
 		config.Listen = "0.0.0.0:8080"
 	}
 
-	if Production {
+	if Production() {
 		config.DisableSchemaDownloads = true
 		config.EnabledSchemaStorage = false
 	} else {

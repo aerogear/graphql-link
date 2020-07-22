@@ -107,8 +107,8 @@ func run(cmd *cobra.Command, args []string) {
 	}
 
 	// Store it's schema
-	os.MkdirAll(filepath.Join(c.ConfigDirectory, "upstreams"), 0755)
-	upstreamSchemaFile := filepath.Join(c.ConfigDirectory, "upstreams", upstreamName+".graphql")
+	os.MkdirAll(filepath.Join(c.WorkDirectory, "upstreams"), 0755)
+	upstreamSchemaFile := filepath.Join(c.WorkDirectory, "upstreams", upstreamName+".graphql")
 	err = ioutil.WriteFile(upstreamSchemaFile, []byte(upstreamSchema.String()), 0644)
 	if err != nil {
 		log.Fatalf(root.Verbosity, err)

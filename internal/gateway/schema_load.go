@@ -19,7 +19,7 @@ func loadEndpointSchema(config Config, upstream *upstreamServer) (*schema.Schema
 		return Parse(schemaText)
 	}
 
-	upstreamSchemaFile := filepath.Join(config.ConfigDirectory, "upstreams", upstream.id+".graphql")
+	upstreamSchemaFile := filepath.Join(config.WorkDirectory, "upstreams", upstream.id+".graphql")
 	upstreamSchemaFileExists := false
 	if stat, err := os.Stat(upstreamSchemaFile); err == nil && !stat.IsDir() {
 		upstreamSchemaFileExists = true
@@ -69,7 +69,7 @@ func downloadSchema(config Config, upstream *upstreamServer) (*schema.Schema, er
 
 	// We may need to store it if it succeeded.
 	if err == nil && config.EnabledSchemaStorage {
-		upstreamSchemaFile := filepath.Join(config.ConfigDirectory, "upstreams", upstream.id+".graphql")
+		upstreamSchemaFile := filepath.Join(config.WorkDirectory, "upstreams", upstream.id+".graphql")
 		err := ioutil.WriteFile(upstreamSchemaFile, []byte(s.String()), 0644)
 		if err != nil {
 			return nil, errors.Wrap(err, "could not update schema")
