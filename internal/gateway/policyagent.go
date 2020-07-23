@@ -53,6 +53,11 @@ func initPolicyAgent(config Config, gateway *Gateway) error {
 				return err
 			}
 
+			fields := toPolicyCheckFields(gateway.Schema, doc, op)
+			if len(fields) == 0 {
+				return nil
+			}
+
 			r := getHttpRequest(request.Context)
 			checkRequest := &proto.CheckRequest{
 				Source: &proto.Source{
@@ -66,7 +71,7 @@ func initPolicyAgent(config Config, gateway *Gateway) error {
 					Headers:  toPolicyCheckHeaders(r.Header),
 				},
 				Graphql: &proto.GraphQL{
-					Fields: toPolicyCheckFields(gateway.Schema, doc, op),
+					Fields: fields,
 				},
 			}
 
@@ -86,7 +91,6 @@ func initPolicyAgent(config Config, gateway *Gateway) error {
 			if len(checkResponse.Fields) > 0 {
 				request.Context = context.WithValue(request.GetContext(), checkResponseFieldsKey, checkResponse.Fields)
 			}
-
 			return nil
 		}
 		gateway.Validate = func(doc *schema.QueryDocument, maxDepth int) error {
