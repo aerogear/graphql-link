@@ -8,8 +8,9 @@ github.com/armon/consul-api v0.0.0-20180202201655-eb2c6b5be1b6/go.mod h1:grANhF5
 github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973/go.mod h1:Dwedo/Wpr24TaqPxmxbtue+5NUziq4I4S80YR8gNf3Q=
 github.com/beorn7/perks v1.0.0/go.mod h1:KWe93zE9D1o94FZ5RNwFwVgaQK1VOXiVxmqh+CedLV8=
 github.com/cespare/xxhash v1.1.0/go.mod h1:XrSqR1VqqWfGrhpAt58auRo0WTKS1nRRg3ghfAqPWnc=
-github.com/chirino/graphql v0.0.0-20200620205252-3aa1055298c1 h1:9R1VO7zZ/jDc2uqFp7FjvwwruVGfR6TO3TaeVyDCU5I=
 github.com/chirino/graphql v0.0.0-20200620205252-3aa1055298c1/go.mod h1:QJryzmxY+8v+nP7+HjPsMxT4q+tfZZq387ZdG0md+kU=
+github.com/chirino/graphql v0.0.0-20200723150749-b1992f46a318 h1:3BfsEyOx1rmoL9W23etW8sJ2oQV+hMa0TAFUO6ewReM=
+github.com/chirino/graphql v0.0.0-20200723150749-b1992f46a318/go.mod h1:QJryzmxY+8v+nP7+HjPsMxT4q+tfZZq387ZdG0md+kU=
 github.com/chirino/graphql-4-apis v0.0.0-20200622132210-66059999b694 h1:WmZ0Y9xkgCft6P4DdIZ5qBwQWlMkQH2wiUy4JcsXPfE=
 github.com/chirino/graphql-4-apis v0.0.0-20200622132210-66059999b694/go.mod h1:JUqXBL6BnmaECzXkZnSAunwgAccI1MY0SYVEGuxSX3A=
 github.com/chirino/hawtgo v0.0.1 h1:BwUkArpv32ZDK5QFnG1RysagrKe82TsagXxi2Ys2flA=
@@ -100,6 +101,8 @@ github.com/mwitkow/go-conntrack v0.0.0-20161129095857-cc309e4a2223/go.mod h1:qRW
 github.com/oklog/ulid v1.3.1/go.mod h1:CirwcVhetQ6Lv90oh/F+FBtV6XMibvdAFo93nm5qn4U=
 github.com/opentracing/opentracing-go v1.1.0 h1:pWlfV3Bxv7k65HYwkikxat0+s3pV4bsqf19k25Ur8rU=
 github.com/opentracing/opentracing-go v1.1.0/go.mod h1:UkNAQd3GIcIGf0SeVgPpRdFStlNbqXla1AfSYxPUl2o=
+github.com/opentracing/opentracing-go v1.2.0 h1:uEJPy/1a5RIPAJ0Ov+OIO8OxWu77jEv+1B0VhjKrZUs=
+github.com/opentracing/opentracing-go v1.2.0/go.mod h1:GxEUsuufX4nBwe+T+Wl9TAgYrxe9dPLANfrWvHYVTgc=
 github.com/pelletier/go-toml v1.2.0 h1:T5zMGML61Wp+FlcbWjRDT7yAxhJNAiPPLOFECq181zc=
 github.com/pelletier/go-toml v1.2.0/go.mod h1:5z9KED0ma1S8pY6P1sdut58dfprrGBbd/94hg7ilaic=
 github.com/pkg/errors v0.8.0 h1:WdK/asTD0HN+q6hsWO3/vpuAkAr+tw6aNJNDFFf0+qw=

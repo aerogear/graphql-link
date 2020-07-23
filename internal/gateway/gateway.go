@@ -39,7 +39,7 @@ type PolicyAgentConfig struct {
 }
 
 type Config struct {
-	ConfigDirectory        string                     `yaml:"-"`
+	WorkDirectory          string                     `yaml:"-"`
 	Log                    *log.Logger                `yaml:"-"`
 	DisableSchemaDownloads bool                       `yaml:"disable-schema-downloads,omitempty"`
 	EnabledSchemaStorage   bool                       `yaml:"enable-schema-storage,omitempty"`
@@ -68,11 +68,11 @@ func New(config Config) (*Gateway, error) {
 	if config.Log == nil {
 		config.Log = NoLog
 	}
-	if config.ConfigDirectory == "" {
-		config.ConfigDirectory = "."
+	if config.WorkDirectory == "" {
+		config.WorkDirectory = "."
 	}
 	if config.EnabledSchemaStorage {
-		os.MkdirAll(filepath.Join(config.ConfigDirectory, "upstreams"), 0755)
+		os.MkdirAll(filepath.Join(config.WorkDirectory, "upstreams"), 0755)
 	}
 
 	fieldResolver := resolvers.TypeAndFieldResolver{}
@@ -309,7 +309,7 @@ func HaveUpstreamSchemaChanged(config Config) (bool, error) {
 	for eid, upstream := range upstreams {
 
 		// Load the old stored schema.
-		upstreamSchemaFile := filepath.Join(config.ConfigDirectory, "upstreams", eid+".graphql")
+		upstreamSchemaFile := filepath.Join(config.WorkDirectory, "upstreams", eid+".graphql")
 		data, err := ioutil.ReadFile(upstreamSchemaFile)
 		if err != nil {
 			return false, err
