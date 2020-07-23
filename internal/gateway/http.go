@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net"
@@ -18,30 +19,33 @@ func CreateHttpHandler(f graphql.ServeGraphQLStreamFunc) http.Handler {
 	return &httpgql.Handler{ServeGraphQLStream: f}
 }
 
-func (p *UpstreamInfo) RoundTrip(req *http.Request) (*http.Response, error) {
-
-	ctx := req.Context()
+func getHttpRequest(ctx context.Context) *http.Request {
 	if ctx != nil {
-
 		value := ctx.Value("*net/http.Request")
 		if value != nil {
-			originalRequest := value.(*http.Request)
+			return value.(*http.Request)
+		}
+	}
+	return nil
+}
 
-			toHeaders := req.Header
+func (p *UpstreamInfo) RoundTrip(req *http.Request) (*http.Response, error) {
 
-			if !p.Headers.DisableForwarding {
-				proxyHeaders(toHeaders, originalRequest)
-			}
+	originalRequest := getHttpRequest(req.Context())
+	if originalRequest != nil {
+		toHeaders := req.Header
 
-			for _, h := range p.Headers.Remove {
-				toHeaders.Del(h)
-			}
-
-			for _, hl := range p.Headers.Set {
-				toHeaders.Set(hl.Name, hl.Value)
-			}
+		if !p.Headers.DisableForwarding {
+			proxyHeaders(toHeaders, originalRequest)
 		}
 
+		for _, h := range p.Headers.Remove {
+			toHeaders.Del(h)
+		}
+
+		for _, hl := range p.Headers.Set {
+			toHeaders.Set(hl.Name, hl.Value)
+		}
 	}
 	return http.DefaultTransport.RoundTrip(req)
 }

@@ -1,8 +1,11 @@
 package gateway
 
 import (
+	"errors"
 	"reflect"
+	"strings"
 
+	"github.com/chirino/graphql-gw/internal/gateway/policyagent/proto"
 	"github.com/chirino/graphql/resolvers"
 	"github.com/chirino/graphql/schema"
 )
@@ -17,6 +20,24 @@ var upstreamDomResolverInstance = upstreamDomResolver(0)
 func (r upstreamDomResolver) Resolve(request *resolvers.ResolveRequest, next resolvers.Resolution) resolvers.Resolution {
 	if request.Context.Value(upstreamDomResolverInstance) == nil {
 		return next
+	}
+
+	fieldPolicies := getFieldPolicies(request.Context)
+	if fieldPolicies != nil {
+		paths := map[string]*proto.GraphQLFieldResponse{}
+		for _, p := range fieldPolicies {
+			paths[p.Path] = p
+		}
+
+		p := string(request.ExecutionContext.GetOperation().Type) + "/" + strings.Join(request.SelectionPath(), "/")
+		policy := paths[p]
+		if policy != nil {
+			if policy.Error != "" {
+				return func() (reflect.Value, error) {
+					return reflect.Value{}, errors.New(policy.Error)
+				}
+			}
+		}
 	}
 
 	// This is basically exactly like
