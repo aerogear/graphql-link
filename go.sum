@@ -9,8 +9,8 @@ github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973/go.mod h1:Dwedo/Wpr24
 github.com/beorn7/perks v1.0.0/go.mod h1:KWe93zE9D1o94FZ5RNwFwVgaQK1VOXiVxmqh+CedLV8=
 github.com/cespare/xxhash v1.1.0/go.mod h1:XrSqR1VqqWfGrhpAt58auRo0WTKS1nRRg3ghfAqPWnc=
 github.com/chirino/graphql v0.0.0-20200620205252-3aa1055298c1/go.mod h1:QJryzmxY+8v+nP7+HjPsMxT4q+tfZZq387ZdG0md+kU=
-github.com/chirino/graphql v0.0.0-20200723150749-b1992f46a318 h1:3BfsEyOx1rmoL9W23etW8sJ2oQV+hMa0TAFUO6ewReM=
-github.com/chirino/graphql v0.0.0-20200723150749-b1992f46a318/go.mod h1:QJryzmxY+8v+nP7+HjPsMxT4q+tfZZq387ZdG0md+kU=
+github.com/chirino/graphql v0.0.0-20200723175208-cec7bf430a98 h1:EZLwM65LWcjnX2ry8tiBlg2vEBepDcf4wt1T1Q8J7c0=
+github.com/chirino/graphql v0.0.0-20200723175208-cec7bf430a98/go.mod h1:QJryzmxY+8v+nP7+HjPsMxT4q+tfZZq387ZdG0md+kU=
 github.com/chirino/graphql-4-apis v0.0.0-20200622132210-66059999b694 h1:WmZ0Y9xkgCft6P4DdIZ5qBwQWlMkQH2wiUy4JcsXPfE=
 github.com/chirino/graphql-4-apis v0.0.0-20200622132210-66059999b694/go.mod h1:JUqXBL6BnmaECzXkZnSAunwgAccI1MY0SYVEGuxSX3A=
 github.com/chirino/hawtgo v0.0.1 h1:BwUkArpv32ZDK5QFnG1RysagrKe82TsagXxi2Ys2flA=
