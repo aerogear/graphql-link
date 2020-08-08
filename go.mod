@@ -2,10 +2,10 @@ module github.com/chirino/graphql-gw
 
 require (
 	github.com/chirino/graphql v0.0.0-20200723175208-cec7bf430a98
-	github.com/chirino/graphql-4-apis v0.0.0-20200622132210-66059999b694
+	github.com/chirino/graphql-4-apis v0.0.0-20200808162117-0a5c978138ef
 	github.com/chirino/hawtgo v0.0.1
 	github.com/fsnotify/fsnotify v1.4.9
-	github.com/getkin/kin-openapi v0.14.0 // indirect
+	github.com/getkin/kin-openapi v0.19.0 // indirect
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-chi/chi v4.1.2+incompatible
 	github.com/go-chi/render v1.0.1

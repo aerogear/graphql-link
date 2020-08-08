@@ -248,7 +248,7 @@ func CreateOpenAPIUpstreamServer(id string, upstream *OpenApiUpstream, config Co
 	engine, err := apis.CreateGatewayEngine(apis.Config{
 		Openapi: upstream.Openapi,
 		APIBase: upstream.APIBase,
-		Log:     NoLog,
+		Log:     SimpleLog,
 	})
 	if err != nil {
 		return nil, err
