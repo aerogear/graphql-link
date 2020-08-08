@@ -52,7 +52,7 @@ func run(_ *cobra.Command, _ []string) {
 		}
 	} else {
 
-		if config.WorkDir != filepath.Dir(config.File) {
+		if config.WorkDir!="" && config.WorkDir != filepath.Dir(config.File) {
 			os.MkdirAll(config.WorkDir, 0755)
 
 			source := config.File
