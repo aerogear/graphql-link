@@ -95,7 +95,7 @@ schema:
 ### `types:`
 
 Use the `types:` section of the configuration to define the fields that can be 
-accessed by clients of the `graphql-gw`.   You typicaly start by configuring the root query type names
+accessed by clients of the `graphql-link`.   You typicaly start by configuring the root query type names
 
 The following example will add a field `myfield` to the `Query` type where the type is the root query of the `anilist` upstream server. 
 

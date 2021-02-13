@@ -3,13 +3,13 @@
 ### Usage
 
 
-`$ graphql-gw --help`
+`$ graphql-link --help`
 
 ```
 A GraphQL composition gateway
 
 Usage:
-  graphql-gw [command]
+  graphql-link [command]
 
 Available Commands:
   completion  Generates bash completion scripts
@@ -19,8 +19,8 @@ Available Commands:
   version     Print version information for this executable
 
 Flags:
-  -h, --help      help for graphql-gw
+  -h, --help      help for graphql-link
       --verbose   enables increased verbosity
 
-Use "graphql-gw [command] --help" for more information about a command.
+Use "graphql-link [command] --help" for more information about a command.
 ```
