@@ -13,8 +13,6 @@ github.com/chirino/graphql v0.0.0-20200723175208-cec7bf430a98 h1:EZLwM65LWcjnX2r
 github.com/chirino/graphql v0.0.0-20200723175208-cec7bf430a98/go.mod h1:QJryzmxY+8v+nP7+HjPsMxT4q+tfZZq387ZdG0md+kU=
 github.com/chirino/graphql-4-apis v0.0.0-20200808162117-0a5c978138ef h1:rpT69PzN5e1cOQVRyfybAAzX4ZQlm3sejZtdEbY0/RU=
 github.com/chirino/graphql-4-apis v0.0.0-20200808162117-0a5c978138ef/go.mod h1:JUqXBL6BnmaECzXkZnSAunwgAccI1MY0SYVEGuxSX3A=
-github.com/chirino/graphql-gw v0.0.0-20210213160103-263dc69668e5 h1:SfywdsGFThEe7VEsF0UDjeFiVjzHK/Q5D1ZVLq0PYgk=
-github.com/chirino/graphql-gw v0.0.0-20210213160103-263dc69668e5/go.mod h1:f9tSJ4hKSCcMav19dhfhaEeFGQEvjNbjLXZWPO//bY8=
 github.com/chirino/hawtgo v0.0.1 h1:BwUkArpv32ZDK5QFnG1RysagrKe82TsagXxi2Ys2flA=
 github.com/chirino/hawtgo v0.0.1/go.mod h1:dBjLrMrxLZHJ3iB47gQ9kEftlBlPefp34AU6wA4rAg4=
 github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=

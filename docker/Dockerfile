@@ -12,6 +12,6 @@ COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
 ADD bin /bin
 ADD etc /etc
-WORKDIR /etc/graphql-gw
+WORKDIR /etc/graphql-link
 EXPOSE 8080/tcp
-ENTRYPOINT ["/bin/graphql-gw", "serve"]
+ENTRYPOINT ["/bin/graphql-link", "serve"]

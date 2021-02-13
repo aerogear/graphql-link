@@ -1,6 +1,6 @@
 package main
 
-import "github.com/chirino/graphql-gw/internal/cmd"
+import "github.com/aerogear/graphql-link/internal/cmd"
 
 // GoReleaser sets these via ldflags:
 var (
