@@ -75,6 +75,11 @@ servers.
 ```bash
 go build -o=graphql-link main.go
 ```
+## Docker image
+
+```
+docker pull aerogear/graphql-link
+```
 
 ## License
 
@@ -84,5 +89,9 @@ go build -o=graphql-link main.go
 
 - We love [pull requests](https://github.com/aerogear/graphql-link/pulls)
 - [Open Issues](https://github.com/aerogear/graphql-link/issues)
-- graphql-gw is written in [Go](https://golang.org/). It should work on any platform where go is supported.
+- graphql-link is written in [Go](https://golang.org/). It should work on any platform where go is supported.
 - Built on this [GraphQL](https://github.com/chirino/graphql) framework
+
+## History
+ 
+Project was initialy build by @chirino as `graphql-gw`. 
