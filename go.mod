@@ -1,4 +1,4 @@
-module github.com/chirino/graphql-gw
+module github.com/aerogear/graphql-link
 
 require (
 	github.com/chirino/graphql v0.0.0-20200723175208-cec7bf430a98

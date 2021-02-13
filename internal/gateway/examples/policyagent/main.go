@@ -11,7 +11,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/testdata"
 
-	gw "github.com/chirino/graphql-gw/internal/gateway/policyagent/proto"
+	gw "github.com/aerogear/graphql-link/internal/gateway/policyagent/proto"
 )
 
 var (

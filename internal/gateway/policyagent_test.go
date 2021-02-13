@@ -8,8 +8,8 @@ import (
 	"testing"
 
 	"github.com/chirino/graphql"
-	"github.com/chirino/graphql-gw/internal/gateway"
-	gw "github.com/chirino/graphql-gw/internal/gateway/policyagent/proto"
+	"github.com/aerogear/graphql-link/internal/gateway"
+	gw "github.com/aerogear/graphql-link/internal/gateway/policyagent/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"

@@ -11,11 +11,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/chirino/graphql-gw/internal/cmd/config"
-	"github.com/chirino/graphql-gw/internal/cmd/root"
-	"github.com/chirino/graphql-gw/internal/gateway"
-	"github.com/chirino/graphql-gw/internal/gateway/admin"
-	"github.com/chirino/graphql-gw/internal/gateway/admin/assets"
+	"github.com/aerogear/graphql-link/internal/cmd/config"
+	"github.com/aerogear/graphql-link/internal/cmd/root"
+	"github.com/aerogear/graphql-link/internal/gateway"
+	"github.com/aerogear/graphql-link/internal/gateway/admin"
+	"github.com/aerogear/graphql-link/internal/gateway/admin/assets"
 	"github.com/chirino/graphql/graphiql"
 	"github.com/chirino/graphql/httpgql"
 	"github.com/fsnotify/fsnotify"
@@ -52,7 +52,7 @@ func run(_ *cobra.Command, _ []string) {
 		}
 	} else {
 
-		if config.WorkDir!="" && config.WorkDir != filepath.Dir(config.File) {
+		if config.WorkDir != "" && config.WorkDir != filepath.Dir(config.File) {
 			os.MkdirAll(config.WorkDir, 0755)
 
 			source := config.File

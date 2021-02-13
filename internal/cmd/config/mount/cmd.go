@@ -1,9 +1,9 @@
 package new
 
 import (
-	"github.com/chirino/graphql-gw/internal/cmd/config"
-	"github.com/chirino/graphql-gw/internal/cmd/root"
-	"github.com/chirino/graphql-gw/internal/gateway"
+	"github.com/aerogear/graphql-link/internal/cmd/config"
+	"github.com/aerogear/graphql-link/internal/cmd/root"
+	"github.com/aerogear/graphql-link/internal/gateway"
 	"github.com/chirino/graphql/schema"
 	"github.com/spf13/cobra"
 )

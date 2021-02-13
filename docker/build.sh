@@ -11,5 +11,5 @@ rm graphql-gw.yaml 2> /dev/null || true
 go run ../../../main.go config init
 cd -
 
-docker build -t "chirino/graphql-gw" .
-# docker push chirino/graphql-gw
+docker build -t "aerogear/graphql-link" .
+docker push aerogear/graphql-link

@@ -3,7 +3,7 @@ package version
 import (
 	"fmt"
 
-	"github.com/chirino/graphql-gw/internal/cmd/root"
+	"github.com/aerogear/graphql-link/internal/cmd/root"
 	"github.com/spf13/cobra"
 )
 

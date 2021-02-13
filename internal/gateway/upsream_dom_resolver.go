@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/chirino/graphql-gw/internal/gateway/policyagent/proto"
+	"github.com/aerogear/graphql-link/internal/gateway/policyagent/proto"
 	"github.com/chirino/graphql/resolvers"
 	"github.com/chirino/graphql/schema"
 )

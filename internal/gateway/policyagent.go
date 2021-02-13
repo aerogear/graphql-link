@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/aerogear/graphql-link/internal/gateway/policyagent/proto"
 	"github.com/chirino/graphql"
-	"github.com/chirino/graphql-gw/internal/gateway/policyagent/proto"
 	"github.com/chirino/graphql/exec"
 	"github.com/chirino/graphql/qerrors"
 	"github.com/chirino/graphql/schema"

@@ -4,7 +4,7 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/chirino/graphql-gw/internal/cmd/config"
+	"github.com/aerogear/graphql-link/internal/cmd/config"
 	ghodssyaml "github.com/ghodss/yaml"
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"

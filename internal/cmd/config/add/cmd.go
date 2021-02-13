@@ -1,7 +1,7 @@
 package add
 
 import (
-	"github.com/chirino/graphql-gw/internal/cmd/config"
+	"github.com/aerogear/graphql-link/internal/cmd/config"
 	"github.com/spf13/cobra"
 )
 

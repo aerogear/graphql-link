@@ -7,9 +7,9 @@ import (
 	"testing"
 
 	"github.com/chirino/graphql"
-	"github.com/chirino/graphql-gw/internal/gateway"
-	"github.com/chirino/graphql-gw/internal/gateway/examples/characters"
-	"github.com/chirino/graphql-gw/internal/gateway/examples/starwars_characters"
+	"github.com/aerogear/graphql-link/internal/gateway"
+	"github.com/aerogear/graphql-link/internal/gateway/examples/characters"
+	"github.com/aerogear/graphql-link/internal/gateway/examples/starwars_characters"
 	"github.com/chirino/graphql/httpgql"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
