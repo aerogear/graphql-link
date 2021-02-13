@@ -25,9 +25,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ======================================================
  Licenses of go module dependencies reported by:
- `go-licenses csv github.com/chirino/graphql-gw`
+ `go-licenses csv github.com/chirino/graphql-link`
 ======================================================
-github.com/chirino/graphql-gw,https://github.com/chirino/graphql-gw/blob/master/LICENSE,BSD-2-Clause
+github.com/aerogear/graphql-link,https://github.com/aerogear/graphql-link/blob/master/LICENSE,BSD-2-Clause
 github.com/spf13/cobra,https://github.com/spf13/cobra/blob/master/LICENSE.txt,Apache-2.0
 github.com/spf13/pflag,https://github.com/spf13/pflag/blob/master/LICENSE,BSD-3-Clause
 github.com/pkg/errors,https://github.com/pkg/errors/blob/master/LICENSE,BSD-2-Clause
