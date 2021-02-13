@@ -1,9 +1,9 @@
-# graphql-gw
+# graphql-link
 
 This is a GraphQL gateway that lets you easily compose or federate other
 GraphQL upstream servers.
 
-<img src="https://raw.githubusercontent.com/chirino/graphql-gw/master/docs/images/graphql-gw-overview.jpg" alt="diagram of graphql-gw" width="488">
+<img src="https://raw.githubusercontent.com/aerogear/graphql-link/master/docs/images/graphql-gw-overview.jpg" alt="diagram of graphql-link" width="488">
 
 ## Features
 
@@ -21,33 +21,33 @@ GraphQL upstream servers.
 
 ### Installing Prebuilt Binaries
 
-Please download [latest github release](https://github.com/chirino/graphql-gw/releases) for your platform
+Please download [latest github release](https://github.com/aerogear/graphql-link/releases) for your platform
 
 ### Installing from Source
 
 If you have a recent [go](https://golang.org/dl/) SDK installed:
 
-`go get -u github.com/chirino/graphql-gw`
+`go get -u github.com/aerogear/graphql-link`
 
 ## Getting started
 
 Use the following command to create a default server configuration file.
 
 ```bash
-$ graphql-gw config init
+$ graphql-link config init
 
-Created:  graphql-gw.yaml
+Created:  graphql-link.yaml
 
 Start the gateway by running:
 
-    graphql-gw serve
+    graphql-link serve
 
 ```
 
 Then run the server using this command:
 
 ```bash
-$ graphql-gw serve
+$ graphql-link serve
 2020/07/07 10:16:29 GraphQL endpoint is running at http://127.0.0.1:8080/graphql
 2020/07/07 10:16:29 Gateway Admin UI and GraphQL IDE is running at http://127.0.0.1:8080
 ```
@@ -56,9 +56,9 @@ You can then use the Web UI at [http://127.0.0.1:8080](http://127.0.0.1:8080) to
  
 ### Development and Production Mode
 
-The `graphql-gw serve` command will run the gateway in development mode.  Development mode enables the configuration web interface and will cause the gateway to periodical download upstream schemas on start up.  The schema files will be stored in the `upstreams` directory (located in the same directory as the gateway configuration file).  If any of the schemas cannot be downloaded the gateway will fail to startup.
+The `graphql-link serve` command will run the gateway in development mode.  Development mode enables the configuration web interface and will cause the gateway to periodical download upstream schemas on start up.  The schema files will be stored in the `upstreams` directory (located in the same directory as the gateway configuration file).  If any of the schemas cannot be downloaded the gateway will fail to startup.
 
-You can use `graphql-gw serve --production` to enabled production mode.  In this mode, the configuration web interface is disabled, and the schema for the upstream severs will be loaded from the `upstreams` directory that they were stored when you used development mode.  This ensures that your gateway will have a consistent schema presented, and that it's start up will not be impacted by the availability of the upstream
+You can use `graphql-link serve --production` to enabled production mode.  In this mode, the configuration web interface is disabled, and the schema for the upstream severs will be loaded from the `upstreams` directory that they were stored when you used development mode.  This ensures that your gateway will have a consistent schema presented, and that it's start up will not be impacted by the availability of the upstream
 servers.
 
 ### Demos
@@ -73,7 +73,7 @@ servers.
 ## Build from source
 
 ```bash
-go build -o=graphql-gw main.go
+go build -o=graphql-link main.go
 ```
 
 ## License
@@ -82,7 +82,7 @@ go build -o=graphql-gw main.go
 
 ## Development
 
-- We love [pull requests](https://github.com/chirino/graphql-gw/pulls)
-- [Open Issues](https://github.com/chirino/graphql-gw/issues)
+- We love [pull requests](https://github.com/aerogear/graphql-link/pulls)
+- [Open Issues](https://github.com/aerogear/graphql-link/issues)
 - graphql-gw is written in [Go](https://golang.org/). It should work on any platform where go is supported.
 - Built on this [GraphQL](https://github.com/chirino/graphql) framework
