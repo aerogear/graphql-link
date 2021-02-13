@@ -1,9 +1,11 @@
 # graphql-link
 
+<img src="https://raw.githubusercontent.com/aerogear/graphql-link/master/docs/images/logo/png" alt="logo-graphql-link" width="488">
+
 This is a GraphQL gateway that lets you easily compose or federate other
 GraphQL upstream servers.
 
-<img src="https://raw.githubusercontent.com/aerogear/graphql-link/master/docs/images/graphql-gw-overview.jpg" alt="diagram of graphql-link" width="488">
+<img src="https://raw.githubusercontent.com/aerogear/graphql-link/master/docs/images/graphql-link-overview.jpg" alt="diagram of graphql-link" width="488">
 
 ## Features
 
