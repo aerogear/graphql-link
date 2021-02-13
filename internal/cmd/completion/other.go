@@ -4,10 +4,10 @@ package completion
 
 const longDescription = `To load completion run
 
-. <(graphql-gw completion)
+. <(graphql-link completion)
 
 To configure your bash shell to load completions for each session run:
 
-echo ". <(graphql-gw completion)" >> ~/.profile
+echo ". <(graphql-link completion)" >> ~/.profile
 
 `

@@ -35,7 +35,7 @@ var (
 )
 
 func init() {
-	Command.Flags().StringVar(&config.File, "config", "graphql-gw.yaml", "path to the config file to load")
+	Command.Flags().StringVar(&config.File, "config", "graphql-link.yaml", "path to the config file to load")
 	Command.Flags().StringVar(&config.WorkDir, "workdir", "", "working to write files to in dev mode. (default to the directory the config file is in)")
 	Production = root.BoolBind(Command.Flags(), "production", false, "when true, the server will not download and store schemas from remote graphql endpoints.")
 	root.Command.AddCommand(Command)
@@ -56,7 +56,7 @@ func run(_ *cobra.Command, _ []string) {
 			os.MkdirAll(config.WorkDir, 0755)
 
 			source := config.File
-			target := filepath.Join(config.WorkDir, "graphql-gw.yaml")
+			target := filepath.Join(config.WorkDir, "graphql-link.yaml")
 			if _, err := os.Stat(target); err != nil && os.IsNotExist(err) {
 				err := copy(source, target)
 				if err != nil {

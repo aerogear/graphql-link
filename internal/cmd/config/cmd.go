@@ -31,7 +31,7 @@ var (
 )
 
 func init() {
-	Command.PersistentFlags().StringVar(&File, "config", "graphql-gw.yaml", "path to the config file to modify")
+	Command.PersistentFlags().StringVar(&File, "config", "graphql-link.yaml", "path to the config file to modify")
 	Command.PersistentFlags().StringVar(&WorkDir, "workdir", "", "working to write files to in dev mode. (default to the directory the config file is in)")
 	root.Command.AddCommand(Command)
 }

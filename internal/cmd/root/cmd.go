@@ -12,7 +12,7 @@ import (
 
 var (
 	Command = &cobra.Command{
-		Use:   "graphql-gw",
+		Use:   "graphql-link",
 		Short: "A GraphQL composition gateway",
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			if !Verbose {

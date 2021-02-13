@@ -33,7 +33,7 @@ func run(_ *cobra.Command, _ []string) {
 	}
 
 	err := ioutil.WriteFile(config.File, []byte(`# ------------------------------------------------
-# graphql-gw config docs: https://bit.ly/2L5TgyB
+# graphql-link config docs: https://bit.ly/2L5TgyB
 # ------------------------------------------------
 listen: localhost:8080
 
@@ -114,6 +114,6 @@ types:
 	log.Println()
 	log.Println(`Start the gateway by running:`)
 	log.Println()
-	log.Println(`    graphql-gw serve`)
+	log.Println(`    graphql-link serve`)
 	log.Println()
 }
