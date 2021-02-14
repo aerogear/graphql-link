@@ -10,7 +10,7 @@ GraphQL servers.
 
 
 
-<img src="https://raw.githubusercontent.com/aerogear/graphql-link/master/docs/images/graphql-link-overview.jpg" alt="diagram of graphql-link" width="488">
+
 
 ## Features
 
@@ -25,6 +25,9 @@ GraphQL servers.
 - Link the graphs of different upstream servers by defining additional link fields.
 - Web based configuration UI
 - OpenAPI based upstream servers (get automatically converted to a GraphQL Schema)
+
+
+<img src="https://raw.githubusercontent.com/aerogear/graphql-link/master/docs/images/graphql-link-overview.jpg" alt="diagram of graphql-link" width="488">
 
 ### Installing Prebuilt Binaries
 
