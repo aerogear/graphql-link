@@ -4,7 +4,7 @@
     <img src="https://raw.githubusercontent.com/aerogear/graphql-link/master/docs/images/logo.png" alt="logo-graphql-link" width="488">
 
   <br/>
-GrapQL-Link is an GraphQL gateway that lets you easily compose or federate other
+GrapQL-Link is an GraphQL gateway that lets you easily proxy to other
 GraphQL servers.
 </p>
 
