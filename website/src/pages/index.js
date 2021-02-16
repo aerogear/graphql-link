@@ -5,6 +5,7 @@ import Link from "@docusaurus/Link";
 import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
 import useBaseUrl from "@docusaurus/useBaseUrl";
 import styles from "./styles.module.css";
+import "tailwindcss/tailwind.css";
 
 const features = [
   {
@@ -60,11 +61,28 @@ const features = [
   },
 ];
 
-function Feature({ title, description }) {
+function Body() {
   return (
-    <div className={clsx("col col--4", styles.feature)}>
-      <h3>{title}</h3>
-      <p>{description}</p>
+    <div>
+      <div className="flex flex-wrap p-5">
+        {features && features.length > 0 && (
+          <div className="row p-10">
+            {features.map((props, idx) => (
+              <div
+                key={idx}
+                className="xl:w-1/3 lg:w-1/2 md:w-full px-8 py-6 my-5 border-l-2 border-gray-200 border-opacity-60"
+              >
+                <h3 className="text-lg sm:text-xl  font-medium title-font mb-2">
+                  {props.title}
+                </h3>
+                <p className="leading-relaxed text-base mb-4">
+                  {props.description}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -84,7 +102,7 @@ function Home() {
           <div className={styles.buttons}>
             <Link
               className={clsx(
-                "button  button--outline button--secondary button--lg",
+                "mt-10 text-black px-10 py-3 rounded-md no-underline hover:bg-gray-200 hover:no-underline  bg-white",
                 styles.getStarted
               )}
               to={useBaseUrl("docs/")}
@@ -95,9 +113,9 @@ function Home() {
         </div>
       </header>
       <main>
-        {features && features.length > 0 && (
+        {/* {features && features.length > 0 && (
           <section className={styles.features}>
-            <div className="container">
+            <div className="container ">
               <div className="row">
                 {features.map((props, idx) => (
                   <Feature key={idx} {...props} />
@@ -105,7 +123,9 @@ function Home() {
               </div>
             </div>
           </section>
-        )}
+        )} */}
+
+        <Body />
       </main>
     </Layout>
   );

@@ -9,6 +9,7 @@ module.exports = {
   favicon: "img/logo.ico",
   organizationName: "aerogear",
   projectName: "graphql-link",
+  plugins: ["docusaurus-tailwindcss-loader"],
   themeConfig: {
     navbar: {
       title: "Graphql Link",
