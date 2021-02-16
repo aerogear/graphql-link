@@ -1,7 +1,12 @@
+---
+id: cli
+title: CLI Guide
+sidebar_label: CLI Guide
+---
+
 ## CLI Guide
 
 ### Usage
-
 
 `$ graphql-link --help`
 
