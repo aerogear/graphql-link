@@ -1,5 +1,5 @@
 module.exports = {
-  someSidebar: {
+  main: {
     CLI: ["cli"],
     Congfiguration: ["config"],
   },

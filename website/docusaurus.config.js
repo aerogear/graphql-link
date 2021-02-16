@@ -24,7 +24,6 @@ module.exports = {
           label: "Docs",
           position: "left",
         },
-        { to: "blog", label: "Blog", position: "left" },
         {
           href: "https://github.com/aerogear/graphql-link/",
           label: "GitHub",
@@ -53,17 +52,13 @@ module.exports = {
           items: [
             {
               label: "Discord",
-              href: "https://discordapp.com/invite/",
+              href: "https://discord.gg/tfQ9jSzs9D",
             },
           ],
         },
         {
           title: "More",
           items: [
-            {
-              label: "Blog",
-              to: "blog",
-            },
             {
               label: "GitHub",
               href: "https://github.com/aerogear/graphql-link/",
