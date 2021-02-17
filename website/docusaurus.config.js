@@ -6,17 +6,23 @@ module.exports = {
   baseUrl: "/graphql-link/",
   onBrokenLinks: "ignore",
   onBrokenMarkdownLinks: "warn",
-  favicon: "img/logo.ico",
+  favicon: "img/logo_without_text-removebg-preview.png",
   organizationName: "aerogear",
   projectName: "graphql-link",
   plugins: ["docusaurus-tailwindcss-loader"],
+
   themeConfig: {
+    colorMode: {
+      disableSwitch: true,
+      defaultMode: "dark",
+    },
     navbar: {
       title: "Graphql Link",
-      // logo: {
-      //   alt: "graphql link",
-      //   src: "img/logo.png",
-      // },
+      logo: {
+        alt: "graphql link",
+        src: "img/logo_without_background.png",
+      },
+      style: "dark",
       items: [
         {
           to: "docs/",

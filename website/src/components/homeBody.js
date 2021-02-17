@@ -11,16 +11,7 @@ const features = [
       </>
     ),
   },
-  {
-    title: "Configuration",
-    description: (
-      <>
-        The configuration uses GraphQL queries to define which upstream fields
-        and types can be accessed. Upstream types, that are accessible, are
-        automatically merged into the gateway schema.
-      </>
-    ),
-  },
+
   {
     title: "Avoid type conflicts",
     description: (
@@ -57,17 +48,17 @@ const features = [
 export default function homeBody() {
   return (
     <div>
-      <div class="row homebody">
+      <div className="row homebody">
         {features.map((props, idx) => (
-          <div key={idx} class="col">
-            <div class="card">
-              <div class="card__header">
+          <div key={idx} className="col">
+            <div className="card">
+              <div className="card__header">
                 <h3>{props.title}</h3>
               </div>
-              <div class="card__body">
+              <div className="card__body">
                 <p>{props.description}</p>
               </div>
-              <div class="card__footer"></div>
+              <div className="card__footer"></div>
             </div>
           </div>
         ))}
