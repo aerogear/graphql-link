@@ -2,12 +2,12 @@ module.exports = {
   title: "Graphql Link",
   tagline:
     "Graphql Link is a GraphQL server that composes other GraphQL or OpenAPI endpoints",
-  url: "https://ankithans.github.io",
+  url: "https://aerogear.github.io",
   baseUrl: "/graphql-link/",
   onBrokenLinks: "ignore",
   onBrokenMarkdownLinks: "warn",
   favicon: "img/logo_without_text-removebg-preview.png",
-  organizationName: "ankithans",
+  organizationName: "aerogear",
   projectName: "graphql-link",
   plugins: ["docusaurus-tailwindcss-loader"],
 
