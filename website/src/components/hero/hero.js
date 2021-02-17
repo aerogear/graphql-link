@@ -19,11 +19,7 @@ export default function hero() {
           </div>
 
           <div className="main__img--container">
-            <img
-              id="main__img"
-              src="./img/logo_without_text_three.png"
-              alt="logo"
-            />
+            <img id="main__img" src="./img/logo_without_text.png" alt="logo" />
           </div>
         </div>
       </FadeIn>

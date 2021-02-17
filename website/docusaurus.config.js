@@ -16,18 +16,11 @@ module.exports = {
       disableSwitch: true,
       defaultMode: "dark",
     },
-    announcementBar: {
-      id: "support_us",
-      content: "This website is under construction 🚧",
-      // backgroundColor: "#ccc", // Defaults to `#fff`.
-      textColor: "#000", // Defaults to `#000`.
-      isCloseable: false, // Defaults to `true`.
-    },
     navbar: {
       title: "Graphql Link",
       logo: {
         alt: "graphql link",
-        src: "img/logo_without_text-removebg-preview.png",
+        src: "img/logo_without_background.png",
       },
       style: "dark",
       items: [
