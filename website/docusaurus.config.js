@@ -2,21 +2,34 @@ module.exports = {
   title: "Graphql Link",
   tagline:
     "Graphql Link is a GraphQL server that composes other GraphQL or OpenAPI endpoints",
-  url: "https://aerogear.github.io",
+  url: "https://ankithans.github.io",
   baseUrl: "/graphql-link/",
   onBrokenLinks: "ignore",
   onBrokenMarkdownLinks: "warn",
-  favicon: "img/logo.ico",
-  organizationName: "aerogear",
+  favicon: "img/logo_without_text-removebg-preview.png",
+  organizationName: "ankithans",
   projectName: "graphql-link",
   plugins: ["docusaurus-tailwindcss-loader"],
+
   themeConfig: {
+    colorMode: {
+      disableSwitch: true,
+      defaultMode: "dark",
+    },
+    announcementBar: {
+      id: "support_us",
+      content: "This website is under construction 🚧",
+      // backgroundColor: "#ccc", // Defaults to `#fff`.
+      textColor: "#000", // Defaults to `#000`.
+      isCloseable: false, // Defaults to `true`.
+    },
     navbar: {
       title: "Graphql Link",
-      // logo: {
-      //   alt: "graphql link",
-      //   src: "img/logo.png",
-      // },
+      logo: {
+        alt: "graphql link",
+        src: "img/logo_without_text-removebg-preview.png",
+      },
+      style: "dark",
       items: [
         {
           to: "docs/",
