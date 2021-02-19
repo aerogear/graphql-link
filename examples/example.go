@@ -14,7 +14,7 @@ import (
 func main() {
 	log.Println("===== Characters =====")
 	charactersEngine := characters.New()
-	charactersServer, err := gateway.StartServer("0.0.0.0", 8081, charactersEngine, gateway.SimpleLog)
+	charactersServer, err := gateway.StartServer("localhost", 8081, charactersEngine, gateway.SimpleLog)
 	if err != nil {
 		panic(err)
 	}
@@ -22,7 +22,7 @@ func main() {
 
 	log.Println("===== Shows =====")
 	showsEngine := shows.New()
-	showsServer, err := gateway.StartServer("0.0.0.0", 8082, showsEngine, gateway.SimpleLog)
+	showsServer, err := gateway.StartServer("localhost", 8082, showsEngine, gateway.SimpleLog)
 	if err != nil {
 		panic(err)
 	}
@@ -30,7 +30,7 @@ func main() {
 
 	log.Println("===== Starwars Characters =====")
 	starwars_charactersEngine := starwars_characters.New()
-	starwars_charactersServer, err := gateway.StartServer("0.0.0.0", 8083, starwars_charactersEngine, gateway.SimpleLog)
+	starwars_charactersServer, err := gateway.StartServer("localhost", 8083, starwars_charactersEngine, gateway.SimpleLog)
 	if err != nil {
 		panic(err)
 	}
@@ -38,7 +38,7 @@ func main() {
 
 	log.Println("===== Starwars StarShip =====")
 	starwars_starshipEngine := starwars_starship.New()
-	starwars_starshipServer, err := gateway.StartServer("0.0.0.0", 8084, starwars_starshipEngine, gateway.SimpleLog)
+	starwars_starshipServer, err := gateway.StartServer("localhost", 8084, starwars_starshipEngine, gateway.SimpleLog)
 	if err != nil {
 		panic(err)
 	}
