@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/aerogear/graphql-link/internal/gateway/examples/starwars_characters"
+	"github.com/aerogear/graphql-link/examples/starwars_characters"
 	"github.com/stretchr/testify/assert"
 )
 
