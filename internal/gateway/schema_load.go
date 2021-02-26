@@ -43,6 +43,9 @@ func loadEndpointSchema(config Config, upstream *upstreamServer) (*schema.Schema
 			if upstreamSchemaFileExists {
 				config.Log.Printf("download failed (will load cached schema version): %v", err)
 			} else {
+				if err.Error() == "unexpected end of JSON input" {
+					return nil, errors.Errorf("download failed: graphQL api doesn't exist at %s", upstream.info.URL)
+				}
 				return nil, errors.Wrap(err, "download failed")
 			}
 		} else {
