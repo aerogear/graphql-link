@@ -77,8 +77,8 @@ servers.
 
 ## Guides
 
-- [Yaml Configuration Guide](docs/config.md)
-- [CLI Guide](docs/cli.md)
+- [Yaml Configuration Guide](docs/config/config.md)
+- [CLI Guide](docs/cli/cli.md)
 
 ## Build from source
 
