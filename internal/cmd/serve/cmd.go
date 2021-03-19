@@ -21,6 +21,7 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
+	"github.com/rs/cors"
 	"github.com/spf13/cobra"
 )
 
@@ -190,7 +191,12 @@ func watchFile(filename string, onChange func(in fsnotify.Event)) (*fsnotify.Wat
 
 func startServer(config *config.Config) error {
 	postProcess(config)
-	server, err := gateway.StartHttpListener(config.Listen, http.NewServeMux())
+	c := cors.New(cors.Options{
+		AllowedOrigins: []string{"*"},
+	})
+	mux := http.NewServeMux()
+	handler := c.Handler(mux)
+	server, err := gateway.StartHttpListener(config.Listen, handler)
 	if err != nil {
 		return err
 	}
