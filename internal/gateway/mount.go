@@ -8,9 +8,9 @@ import (
 	"strings"
 
 	"github.com/chirino/graphql"
-	"github.com/chirino/graphql/qerrors"
 	"github.com/chirino/graphql/resolvers"
 	"github.com/chirino/graphql/schema"
+	qerrors "github.com/graph-gophers/graphql-go/errors"
 	"github.com/pkg/errors"
 )
 
@@ -45,21 +45,21 @@ func parseSelectionPath(query string) (*schema.FieldSelection, error) {
 		return nil, qerr
 	}
 	if len(doc.Operations) != 1 {
-		return nil, qerrors.New("query paths can only contain one operation")
+		return nil, qerrors.Errorf("query paths can only contain one operation")
 	}
 	op := doc.Operations[0]
 	selections := op.Selections
 	if len(selections) != 1 {
-		return nil, qerrors.New("query paths must contain one selection")
+		return nil, qerrors.Errorf("query paths must contain one selection")
 	}
 	for len(selections) > 0 {
 		if len(selections) > 1 {
-			return nil, qerrors.New("query paths can only contain 1 nested selection")
+			return nil, qerrors.Errorf("query paths can only contain 1 nested selection")
 		}
 		if selection, ok := selections[0].(*schema.FieldSelection); ok {
 			selections = selection.Selections
 		} else {
-			return nil, qerrors.New("query paths can only use field selections")
+			return nil, qerrors.Errorf("query paths can only use field selections")
 		}
 	}
 	return op.Selections[0].(*schema.FieldSelection), nil
@@ -74,7 +74,7 @@ func mount(c actionRunner, field schema.Field, upstream *upstreamServer, upstrea
 	}
 
 	if len(upstreamDoc.Operations) != 1 {
-		return qerrors.New("query document can only contain one operation")
+		return qerrors.Errorf("query document can only contain one operation")
 	}
 	upstreamOp := upstreamDoc.Operations[0]
 

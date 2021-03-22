@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"net/http"
 	"strings"
@@ -9,12 +10,16 @@ import (
 	"github.com/aerogear/graphql-link/internal/gateway/policyagent/proto"
 	"github.com/chirino/graphql"
 	"github.com/chirino/graphql/exec"
-	"github.com/chirino/graphql/qerrors"
 	"github.com/chirino/graphql/schema"
+	"github.com/chirino/graphql/text"
+	qerrors "github.com/graph-gophers/graphql-go/errors"
 	"google.golang.org/grpc"
 )
 
 var checkResponseFieldsKey = "checkResponseFieldsKey"
+
+type ErrorList []*qerrors.QueryError
+type asError ErrorList
 
 func getFieldPolicies(ctx context.Context) []*proto.GraphQLFieldResponse {
 	value := ctx.Value(checkResponseFieldsKey)
@@ -22,6 +27,16 @@ func getFieldPolicies(ctx context.Context) []*proto.GraphQLFieldResponse {
 		return nil
 	}
 	return value.([]*proto.GraphQLFieldResponse)
+}
+
+func (es asError) Error() string {
+	points := make([]string, len(es))
+	for i, err := range es {
+		points[i] = text.BulletIndent(" * ", err.Error())
+	}
+	return fmt.Sprintf(
+		"%d errors occurred:\n\t%s\n\n",
+		len(es), strings.Join(points, "\n\t"))
 }
 
 func initPolicyAgent(config Config, gateway *Gateway) error {
@@ -81,11 +96,15 @@ func initPolicyAgent(config Config, gateway *Gateway) error {
 			}
 
 			if len(checkResponse.ValidationError) > 0 {
-				x := qerrors.ErrorList{}
+				x := ErrorList{}
 				for _, e := range checkResponse.ValidationError {
-					x = append(x, qerrors.New(e))
+					x = append(x, qerrors.Errorf(e))
 				}
-				return x.Error()
+				if len(x) == 0 {
+					return nil
+				} else {
+					return asError(x)
+				}
 			}
 
 			if len(checkResponse.Fields) > 0 {

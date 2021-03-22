@@ -10,14 +10,15 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"runtime"
 
 	"github.com/chirino/graphql"
 	"github.com/chirino/graphql-4-apis/pkg/apis"
 	"github.com/chirino/graphql/exec"
 	"github.com/chirino/graphql/httpgql"
-	"github.com/chirino/graphql/qerrors"
 	"github.com/chirino/graphql/resolvers"
 	"github.com/chirino/graphql/schema"
+	qerrors "github.com/graph-gophers/graphql-go/errors"
 	"github.com/pkg/errors"
 )
 
@@ -54,6 +55,11 @@ var validGraphQLIdentifierRegex = regexp.MustCompile(`^[A-Za-z_][A-Za-z_0-9]*$`)
 type Gateway struct {
 	*graphql.Engine
 	onClose []func()
+}
+
+type ModifiedQueryError struct {
+	*qerrors.QueryError
+	stack errors.StackTrace
 }
 
 func (gw *Gateway) Close() {
@@ -326,6 +332,24 @@ func HaveUpstreamSchemaChanged(config Config) (bool, error) {
 	return false, nil
 }
 
+func (e *ModifiedQueryError) WithLocations(locations ...qerrors.Location) *ModifiedQueryError {
+	e.Locations = locations
+	return e
+}
+
+func (e *ModifiedQueryError) WithStack() *ModifiedQueryError {
+	const depth = 32
+	var pcs [depth]uintptr
+	n := runtime.Callers(3, pcs[:])
+	f := make([]errors.Frame, n)
+	for i := 0; i < n; i++ {
+		f[i] = errors.Frame(pcs[i])
+	}
+
+	e.stack = f
+	return e
+}
+
 func getSelectedFields(upstreamSchema *schema.Schema, q *schema.QueryDocument, op *schema.Operation) ([]exec.FieldSelection, error) {
 	onType := upstreamSchema.EntryPoints[op.Type]
 
@@ -347,10 +371,14 @@ func getSelectedFields(upstreamSchema *schema.Schema, q *schema.QueryDocument, o
 
 		firstSelection := selections[0]
 		if len(fields) == 0 {
-			return nil, qerrors.New("No fields selected").WithLocations(firstSelection.Location()).WithStack()
+			loc := qerrors.Location(firstSelection.Location())
+			err := &ModifiedQueryError{QueryError: qerrors.Errorf("No fields selected")}
+			return nil, err.WithLocations(loc).WithStack()
 		}
 		if len(fields) > 1 {
-			return nil, qerrors.New("please only select one field").WithLocations(firstSelection.Location()).WithStack()
+			loc := qerrors.Location(firstSelection.Location())
+			err := &ModifiedQueryError{QueryError: qerrors.Errorf("please only select one field")}
+			return nil, err.WithLocations(loc).WithStack()
 		}
 		result = append(result, fields[0])
 
