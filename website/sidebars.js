@@ -1,7 +1,7 @@
 module.exports = {
   main: {
     "Getting Started": ["why_use", "installation"],
-    CLI: ["cli"],
-    Congfiguration: ["config", "run_examples"],
+    CLI: ["cli", "run_examples"],
+    Congfiguration: ["config"],
   },
 };
