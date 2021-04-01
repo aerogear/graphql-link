@@ -8,74 +8,82 @@ listen: 0.0.0.0:8080
 #
 # Configure the GraphQL upstream servers you will be accessing
 upstreams:
-  anilist:
-    url: https://graphql.anilist.co
-    prefix: Ani
-  pokemon:
-    url: https://graphql-pokemon.now.sh
-    prefix: Pokemon
-  weather:
-    type: openapi
-    prefix: Weather
-    spec:
-      url: https://weather.com/swagger-docs/sun/v1/sunV1DailyForecast.json
-    api:
-      api-key: please configure me
+  character:
+    url: http://localhost:8081/graphql
+    prefix: Characters
+  show:
+    url: http://localhost:8082/graphql
+    prefix: Shows
+  starShip:
+    url: http://localhost:8084/graphql
+    prefix: StarShip
+  # weather:
+  #   type: openapi
+  #   prefix: Weather
+  #   spec:
+  #     url: https://weather.com/swagger-docs/sun/v1/sunV1DailyForecast.json
+  #   api:
+  #     api-key: please configure me
 types:
   - name: Query
     actions:
-      # mounts the root anilist query to the anime field
+      # mounts the root anilist query to the bestFriend field
       - type: mount
-        field: anime
-        upstream: anilist
+        field: bestFriend
+        upstream: character
         query: query {}
 
-      # mounts the root pokemon query to the pokemon field
+      # mounts the root show query to the name field
       - type: mount
-        field: pokemon
-        upstream: pokemon
+        field: name
+        upstream: show
         query: query {}
 
+      # mounts the root starship query to the id field
       - type: mount
-        field: weather
-        upstream: weather
+        field: id
+        upstream: starShip
         query: query {}
 
+      # - type: mount
+      #   field: weather
+      #   upstream: weather
+      #   query: query {}
 
-  - name: AniCharacter
+  - name: Character
     actions:
       # mounts the root anilist query to the anime field
       - type: link
-        field: pokemon
-        vars:
-          $fullname: name { full }
-        upstream: pokemon
-        query: query { pokemon(name:$fullname) }
-#
-# The above link lets you do queries that access data from both the anilist and pokemon services. Example:
-# query {
-#  anime {
-#    Character(search: "Pikachu") {
-#      description
-#      image {
-#        medium
-#      }
-#      pokemon {
-#        attacks {
-#          special {
-#            name
-#            type
-#            damage
-#          }
-#        }
-#      }
-#    }
-#  }
-#}
+        field: name
+        # vars:
+        #   $fullname: name { full }
+        upstream: show
+        # query: query { show(name:$fullname) }
+  #
+  # The above link lets you do queries that access data from both the anilist and pokemon services. Example:
+  # query {
+  #  anime {
+  #    Character(search: "Pikachu") {
+  #      description
+  #      image {
+  #        medium
+  #      }
+  #      pokemon {
+  #        attacks {
+  #          special {
+  #            name
+  #            type
+  #            damage
+  #          }
+  #        }
+  #      }
+  #    }
+  #  }
+  #}
 
   - name: Mutation
     actions:
-      # mounts all the fields of the root anilist mutation
+      # mounts all the fields of the root character mutation
       - type: mount
-        upstream: anilist
+        upstream: character
         query: mutation {}

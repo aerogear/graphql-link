@@ -5,9 +5,7 @@ sidebar_label: Configuration Guide
 slug: /config
 ---
 
-## Configuration Guide
-
-## Configuration Root Fields
+### Configuration Root Fields
 
 | Field        | Required | Type                       | Description                                                                |
 | ------------ | -------- | -------------------------- | -------------------------------------------------------------------------- |

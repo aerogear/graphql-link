@@ -8,8 +8,8 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/aerogear/graphql-link/examples/characters"
 	"github.com/aerogear/graphql-link/internal/gateway"
-	"github.com/aerogear/graphql-link/internal/gateway/examples/characters"
 	"github.com/chirino/graphql"
 	"github.com/chirino/graphql/httpgql"
 	"github.com/stretchr/testify/assert"
