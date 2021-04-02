@@ -191,9 +191,7 @@ func watchFile(filename string, onChange func(in fsnotify.Event)) (*fsnotify.Wat
 
 func startServer(config *config.Config) error {
 	postProcess(config)
-	c := cors.New(cors.Options{
-		AllowedOrigins: []string{"*"},
-	})
+	c := cors.New((cors.Options)(config.CorsConfig))
 	mux := http.NewServeMux()
 	handler := c.Handler(mux)
 	server, err := gateway.StartHttpListener(config.Listen, handler)

@@ -2,6 +2,7 @@ package config
 
 import (
 	"io/ioutil"
+	"net/http"
 	"net/http/httptest"
 	"path/filepath"
 
@@ -12,11 +13,25 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+type CorsConfig struct {
+	AllowedOrigins         []string                                  `yaml:"allowed-origins"`
+	AllowOriginFunc        func(origin string) bool                  `yaml:"allow-origin-func"`
+	AllowOriginRequestFunc func(r *http.Request, origin string) bool `yaml:"allow-origin-request-func"`
+	AllowedMethods         []string                                  `yaml:"allowed-methods"`
+	AllowedHeaders         []string                                  `yaml:"allowed-headers"`
+	ExposedHeaders         []string                                  `yaml:"exposed-headers"`
+	MaxAge                 int                                       `yaml:"max-age"`
+	AllowCredentials       bool                                      `yaml:"allow-credentials"`
+	OptionsPassthrough     bool                                      `yaml:"options-passthrough"`
+	Debug                  bool                                      `yaml:"debug"`
+}
+
 type Config struct {
 	Server         *httptest.Server `yaml:"-"`
 	Gateway        *gateway.Gateway `yaml:"-"`
 	Listen         string           `yaml:"listen"`
 	gateway.Config `yaml:"-,inline"`
+	CorsConfig     `yaml:"cors"`
 }
 
 var (
