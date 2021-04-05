@@ -20,10 +20,10 @@ type CorsConfig struct {
 	AllowedMethods         []string                                  `yaml:"allowed-methods"`
 	AllowedHeaders         []string                                  `yaml:"allowed-headers"`
 	ExposedHeaders         []string                                  `yaml:"exposed-headers"`
-	MaxAge                 int                                       `yaml:"max-age"`
-	AllowCredentials       bool                                      `yaml:"allow-credentials"`
-	OptionsPassthrough     bool                                      `yaml:"options-passthrough"`
-	Debug                  bool                                      `yaml:"debug"`
+	MaxAge                 int                                       `yaml:"-"`
+	AllowCredentials       bool                                      `yaml:"-"`
+	OptionsPassthrough     bool                                      `yaml:"-"`
+	Debug                  bool                                      `yaml:"-"`
 }
 
 type Config struct {
