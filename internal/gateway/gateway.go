@@ -38,6 +38,19 @@ type PolicyAgentConfig struct {
 	InsecureClient bool `yaml:"insecure-client,omitempty",json:"insecure-client,omitempty"`
 }
 
+type CorsConfig struct {
+	AllowedOrigins         []string                                  `yaml:"allowed-origins"`
+	AllowOriginFunc        func(origin string) bool                  `yaml:"allow-origin-func"`
+	AllowOriginRequestFunc func(r *http.Request, origin string) bool `yaml:"allow-origin-request-func"`
+	AllowedMethods         []string                                  `yaml:"allowed-methods"`
+	AllowedHeaders         []string                                  `yaml:"allowed-headers"`
+	ExposedHeaders         []string                                  `yaml:"exposed-headers"`
+	MaxAge                 int                                       `yaml:"-"`
+	AllowCredentials       bool                                      `yaml:"-"`
+	OptionsPassthrough     bool                                      `yaml:"-"`
+	Debug                  bool                                      `yaml:"-"`
+}
+
 type Config struct {
 	WorkDirectory          string                     `yaml:"-"`
 	Log                    *log.Logger                `yaml:"-"`
@@ -47,6 +60,7 @@ type Config struct {
 	Schema                 *SchemaConfig              `yaml:"schema,omitempty"`
 	Types                  []TypeConfig               `yaml:"types"`
 	PolicyAgent            PolicyAgentConfig          `yaml:"policy-agent"`
+	CorsConfig             `yaml:"cors"`
 }
 
 var validGraphQLIdentifierRegex = regexp.MustCompile(`^[A-Za-z_][A-Za-z_0-9]*$`)
